@@ -233,7 +233,7 @@ namespace quickhull {
 			
 			// Create new faces using the edgeloop
 			for (size_t i = 0; i < horizonEdgeCount; i++) {
-				const size_t AB = horizonEdges[i];
+				const size_t AB = m_horizonEdges[i];
 
 				auto horizonEdgeVertexIndices = m_mesh.getVertexIndicesOfHalfEdge(m_mesh.m_halfEdges[AB]);
 				size_t A,B,C;

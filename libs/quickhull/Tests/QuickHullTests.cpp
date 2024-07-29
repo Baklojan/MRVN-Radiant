@@ -307,7 +307,7 @@ namespace quickhull {
 			testPlanes();
 			testVector3();
 			testHalfEdgeOutput();
-			ssphereTest();
+			sphereTest();
 			std::cout << "QuickHull tests succesfully passed." << std::endl;
 			return 0;
 		}

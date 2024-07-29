@@ -227,7 +227,7 @@ namespace quickhull {
 		}
 
 		std::array<size_t,3> getVertexIndicesOfFace(const Face& f) const {
-			std::array<IndexType,3> v;
+			std::array<size_t,3> v;
 			const HalfEdge* he = &m_halfEdges[f.m_he];
 			v[0] = he->m_endVertex;
 			he = &m_halfEdges[he->m_next];
