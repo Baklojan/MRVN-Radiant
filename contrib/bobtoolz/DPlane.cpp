@@ -28,7 +28,6 @@
 #include "DPoint.h"
 #include "DWinding.h"
 
-#include "str.h"
 #include "misc.h"
 
 //////////////////////////////////////////////////////////////////////
@@ -106,7 +105,6 @@ bool DPlane::PlaneIntersection( DPlane *pl1, DPlane *pl2, vec3_t out ){
 bool DPlane::IsRedundant( std::list<DPoint*>& pointList ){
 	int cnt = 0;
 
-	//std::list<DPoint *>::const_iterator point=pointList.begin();
 	for ( std::list<DPoint *>::const_iterator point = pointList.begin(); point != pointList.end(); point++ )
 	{
 		if ( fabs( DistanceToPoint( ( *point )->_pnt ) ) < MAX_ROUND_ERROR ) {
@@ -120,7 +118,7 @@ bool DPlane::IsRedundant( std::list<DPoint*>& pointList ){
 	return true;
 }
 
-bool DPlane::operator ==( DPlane& other ){
+bool DPlane::operator ==( const DPlane& other ) const {
 	vec3_t chk;
 	VectorSubtract( other.normal, normal, chk );
 	if ( fabs( VectorLength( chk ) ) > MAX_ROUND_ERROR ) {
@@ -144,18 +142,18 @@ bool DPlane::operator !=( DPlane& other ){
 	return true;
 }
 
-DWinding* DPlane::BaseWindingForPlane(){
+DWinding DPlane::BaseWindingForPlane() const {
 	int i, x;
 	vec_t max, v;
 	vec3_t org, vright, vup;
 
-// find the major axis
+	// find the major axis
 
 	max = -131072;
 	x = -1;
 	for ( i = 0; i < 3; i++ )
 	{
-		v = (float)fabs( normal[i] );
+		v = fabs( normal[i] );
 		if ( v > max ) {
 			x = i;
 			max = v;
@@ -163,6 +161,7 @@ DWinding* DPlane::BaseWindingForPlane(){
 	}
 	if ( x == -1 ) {
 		globalWarningStream() << "BaseWindingForPlane: no axis found";
+		return DWinding();
 	}
 
 	VectorCopy( vec3_origin, vup );
@@ -188,21 +187,21 @@ DWinding* DPlane::BaseWindingForPlane(){
 	VectorScale( vup, 131072, vup );
 	VectorScale( vright, 131072, vright );
 
-// project a really big	axis aligned box onto the plane
-	DWinding* w = new DWinding;
-	w->AllocWinding( 4 );
+	// project a really big	axis aligned box onto the plane
+	DWinding w;
+	w.AllocWinding( 4 );
 
-	VectorSubtract( org, vright, w->p[0] );
-	VectorAdd( w->p[0], vup, w->p[0] );
+	VectorSubtract( org, vright, w.p[0] );
+	VectorAdd( w.p[0], vup, w.p[0] );
 
-	VectorAdd( org, vright, w->p[1] );
-	VectorAdd( w->p[1], vup, w->p[1] );
+	VectorAdd( org, vright, w.p[1] );
+	VectorAdd( w.p[1], vup, w.p[1] );
 
-	VectorAdd( org, vright, w->p[2] );
-	VectorSubtract( w->p[2], vup, w->p[2] );
+	VectorAdd( org, vright, w.p[2] );
+	VectorSubtract( w.p[2], vup, w.p[2] );
 
-	VectorSubtract( org, vright, w->p[3] );
-	VectorSubtract( w->p[3], vup, w->p[3] );
+	VectorSubtract( org, vright, w.p[3] );
+	VectorSubtract( w.p[3], vup, w.p[3] );
 
 	return w;
 }

@@ -20,8 +20,8 @@
 #pragma once
 
 #include "mathlib.h"
-#include <list>
-#include "str.h"
+#include <vector>
+#include "string/string.h"
 #include "iscenegraph.h"
 
 #define MAX_ROUND_ERROR 0.05
@@ -32,9 +32,12 @@ vec_t Min( vec_t a, vec_t b );
 const char* GetCurrentTexture();
 
 class _QERFaceData;
-void FillDefaultTexture( _QERFaceData* faceData, vec3_t va, vec3_t vb, vec3_t vc, const char* texture );
+void FillDefaultTexture( _QERFaceData* faceData, const vec3_accu_t va, const vec3_accu_t vb, const vec3_accu_t vc, const char* texture );
+inline void FillDefaultTexture( _QERFaceData* faceData, const vec3_t va, const vec3_t vb, const vec3_t vc, const char* texture ){
+	FillDefaultTexture( faceData, vec3_accu_t{ va[0], va[1], va[2] }, vec3_accu_t{ vb[0], vb[1], vb[2] }, vec3_accu_t{ vc[0], vc[1], vc[2] }, texture );
+}
 
-void BuildMiniPrt( std::list<Str>* exclusionList );
+void BuildMiniPrt( const std::vector<CopiedString>& exclusionList );
 
 void MoveBlock( int dir, vec3_t min, vec3_t max, float dist );
 void SetInitialStairPos( int dir, vec3_t min, vec3_t max, float width );

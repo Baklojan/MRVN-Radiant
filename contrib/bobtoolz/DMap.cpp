@@ -23,9 +23,6 @@
 
 #include "DMap.h"
 
-#include "str.h"
-#include <list>
-
 #include "DPoint.h"
 #include "DPlane.h"
 #include "DBrush.h"
@@ -37,9 +34,6 @@
 
 #include "generic/referencecounted.h"
 
-#include <vector>
-#include <list>
-#include <map>
 #include <algorithm>
 
 #include "scenelib.h"
@@ -109,7 +103,7 @@ void DMap::BuildInRadiant( bool bAllowDestruction ){
 		entity->BuildInRadiant( bAllowDestruction );
 }
 
-void DMap::LoadAll( bool bLoadPatches ){
+void DMap::LoadAll( const LoadOptions options ){
 	ClearEntities();
 
 	GlobalSelectionSystem().setSelectedAll( false );
@@ -117,19 +111,18 @@ void DMap::LoadAll( bool bLoadPatches ){
 	class load_entities_t : public scene::Traversable::Walker
 	{
 		DMap* m_map;
-		bool m_bLoadPatches;
+		const LoadOptions m_options;
 	public:
-		load_entities_t( DMap* map, bool bLoadPatches )
-			: m_map( map ), m_bLoadPatches( bLoadPatches ){
+		load_entities_t( DMap* map, const LoadOptions options )
+			: m_map( map ), m_options( options ){
 		}
 		bool pre( scene::Node& node ) const {
-			if ( Node_isEntity( node ) ) {
-				DEntity* loadEntity = m_map->AddEntity( "", 0 );
-				loadEntity->LoadFromEntity( node, m_bLoadPatches );
+			if ( Node_isEntity( node ) && !( m_options.loadVisibleOnly && !node.visible() ) ) {
+				m_map->AddEntity( "", 0 )->LoadFromEntity( node, m_options );
 			}
 			return false;
 		}
-	} load_entities( this, bLoadPatches );
+	} load_entities( this, options );
 
 	Node_getTraversable( GlobalSceneGraph().root() )->traverse( load_entities );
 }
@@ -148,7 +141,7 @@ void DMap::ResetTextures( const char* textureName, float fScale[2],      float f
                           bool bResetTextureName,  bool bResetScale[2],  bool bResetShift[2],  bool bResetRotation ){
 	for ( DEntity *entity : entityList )
 	{
-		if ( string_equal_nocase( "worldspawn", entity->m_Classname ) ) {
+		if ( string_equal_nocase( "worldspawn", entity->m_Classname.c_str() ) ) {
 			entity->ResetTextures( textureName,        fScale,       fShift,       rotation, newTextureName,
 			                       bResetTextureName,  bResetScale,  bResetShift,  bResetRotation, true );
 		}

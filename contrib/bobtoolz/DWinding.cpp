@@ -23,24 +23,33 @@
 
 #include "DWinding.h"
 
-#include <list>
-
 #include "DPoint.h"
 #include "DPlane.h"
+
+#include "math/vector.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-DWinding::DWinding(){
-	numpoints = 0;
-	p = NULL;
+DWinding::DWinding()
+:	numpoints( 0 ),
+	p( nullptr )
+{}
+
+DWinding::DWinding( DWinding &&other ) noexcept
+:	numpoints( std::exchange( other.numpoints, 0 ) ),
+	p( std::exchange( other.p, nullptr ) )
+{}
+
+DWinding &DWinding::operator=( DWinding &&other ) noexcept {
+	std::swap( p, other.p );
+	std::swap( numpoints, other.numpoints );
+    return *this;
 }
 
 DWinding::~DWinding(){
-	if ( p ) {
-		delete[] p;
-	}
+	delete[] p;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -141,6 +150,22 @@ void DWinding::WindingCentre( vec3_t centre ){
 	VectorScale( centre, scale, centre );
 }
 
+void DWinding::WindingCentroid( vec3_t centroid ) const {
+	DoubleVector3 cent( 0 ); // 3 times centroid to skip division
+	double areasum = 0;      // 2 times area to skip division
+
+	for( int i = 0; i < numpoints - 1; ++i )
+	{
+		const DoubleVector3 po[3] = { vector3_from_array( p[ 0 ] ), vector3_from_array( p[ i ] ), vector3_from_array( p[ i + 1 ] ) };
+		const DoubleVector3 c = po[0] + po[1] + po[2];
+		const double area = vector3_length( vector3_cross( po[1] - po[0], po[2] - po[0] ) );
+		cent += c * area;
+		areasum += area;
+	}
+
+	cent /= areasum * 3;
+	VectorCopy( cent, centroid );
+}
 
 DWinding* DWinding::CopyWinding(){
 	DWinding* c = new DWinding;
@@ -255,27 +280,26 @@ DWinding* DWinding::ReverseWinding(){
 	return c;
 }
 
-bool DWinding::ChopWindingInPlace( DPlane* chopPlane, vec_t epsilon ){
+bool DWinding::ChopWindingInPlace( const DPlane* chopPlane, vec_t epsilon ){
 	vec_t dists[MAX_POINTS_ON_WINDING + 4];
 	int sides[MAX_POINTS_ON_WINDING + 4];
-	int counts[3];
-	vec_t   *p1, *p2;
-	vec3_t mid;
+	int counts[3] = {0};
 
-	counts[0] = counts[1] = counts[2] = 0;
+	if ( numpoints > MAX_POINTS_ON_WINDING ) {
+		globalWarningStream() << "ChopWindingInPlace: MAX_POINTS_ON_WINDING\n";
+		*this = DWinding();
+		return false;
+	}
 
-// determine sides for each point
-	int i;
-	for ( i = 0; i < numpoints; i++ )
+	// determine sides for each point
+	for ( int i = 0; i < numpoints; i++ )
 	{
-		vec_t dot = DotProduct( p[i], chopPlane->normal );
-		dot -= chopPlane->_d;
-		dists[i] = dot;
+		dists[i] = DotProduct( p[i], chopPlane->normal ) - chopPlane->_d;
 
-		if ( dot > epsilon ) {
+		if ( dists[i] > epsilon ) {
 			sides[i] = SIDE_FRONT;
 		}
-		else if ( dot < -epsilon ) {
+		else if ( dists[i] < -epsilon ) {
 			sides[i] = SIDE_BACK;
 		}
 		else{
@@ -284,38 +308,38 @@ bool DWinding::ChopWindingInPlace( DPlane* chopPlane, vec_t epsilon ){
 
 		counts[sides[i]]++;
 	}
-	sides[i] = sides[0];
-	dists[i] = dists[0];
+	sides[numpoints] = sides[0];
+	dists[numpoints] = dists[0];
 
-	if ( !counts[0] ) {
-		delete this;
+	if ( !counts[SIDE_FRONT] ) {
+		*this = DWinding();
 		return false;
 	}
 
-	if ( !counts[1] ) {
+	if ( !counts[SIDE_BACK] ) {
 		return true;
 	}
 
-	int maxpts = numpoints + 4;   // cant use counts[0]+2 because
-	                              // of fp grouping errors
+	const int maxpts = numpoints + 4;   // cant use counts[0]+2 because
+	                                    // of fp grouping errors
 
-	DWinding* f = new DWinding;
-	f->AllocWinding( maxpts );
-	f->numpoints = 0;
+	DWinding f;
+	f.AllocWinding( maxpts );
+	f.numpoints = 0;
 
-	for ( i = 0; i < numpoints; i++ )
+	for ( int i = 0; i < numpoints; i++ )
 	{
-		p1 = p[i];
+		const vec3_t& p1 = p[i];
 
 		if ( sides[i] == SIDE_ON ) {
-			VectorCopy( p1, f->p[f->numpoints] );
-			f->numpoints++;
+			VectorCopy( p1, f.p[f.numpoints] );
+			f.numpoints++;
 			continue;
 		}
 
 		if ( sides[i] == SIDE_FRONT ) {
-			VectorCopy( p1, f->p[f->numpoints] );
-			f->numpoints++;
+			VectorCopy( p1, f.p[f.numpoints] );
+			f.numpoints++;
 		}
 
 		if ( sides[i + 1] == SIDE_ON || sides[i + 1] == sides[i] ) {
@@ -323,9 +347,10 @@ bool DWinding::ChopWindingInPlace( DPlane* chopPlane, vec_t epsilon ){
 		}
 
 		// generate a split point
-		p2 = p[( i + 1 ) % numpoints];
+		const vec3_t& p2 = p[( i + 1 ) % numpoints];
 
-		vec_t dot = dists[i] / ( dists[i] - dists[i + 1] );
+		const vec_t dot = dists[i] / ( dists[i] - dists[i + 1] );
+		vec3_t mid;
 		for ( int j = 0; j < 3; j++ )
 		{
 			if ( chopPlane->normal[j] == 1 ) {
@@ -339,21 +364,18 @@ bool DWinding::ChopWindingInPlace( DPlane* chopPlane, vec_t epsilon ){
 			}
 		}
 
-		VectorCopy( mid, f->p[f->numpoints] );
-		f->numpoints++;
+		VectorCopy( mid, f.p[f.numpoints] );
+		f.numpoints++;
 	}
 
-	if ( f->numpoints > maxpts ) {
-		globalWarningStream() << "ClipWinding: points exceeded estimate\n";
+	if ( f.numpoints > maxpts ) {
+		globalWarningStream() << "ChopWindingInPlace: points exceeded estimate\n";
 	}
-	if ( f->numpoints > MAX_POINTS_ON_WINDING ) {
-		globalWarningStream() << "ClipWinding: MAX_POINTS_ON_WINDING\n";
+	if ( f.numpoints > MAX_POINTS_ON_WINDING ) {
+		globalWarningStream() << "ChopWindingInPlace: MAX_POINTS_ON_WINDING\n";
 	}
 
-	delete[] p;
-	p = f->p;
-	f->p = NULL;
-	delete f;
+	*this = std::move( f );
 	return true;
 }
 

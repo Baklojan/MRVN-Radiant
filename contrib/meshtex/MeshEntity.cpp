@@ -753,6 +753,7 @@ MeshEntity::GetSliceTexScale(SliceType sliceType,
    // We're going to be walking patches along the mesh, choosing the patches
    // that surround/affect the slice we are interested in. We'll calculate
    // the length of the slice's surface across each patch & add those up.
+
    // A SlicePatchContext will contain all the necessary information to
    // evaluate our slice's surface length within each patch. Some aspects of
    // the SlicePatchContext will vary as we move from patch to patch, but we
@@ -1548,6 +1549,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
 
    // We're going to be walking patches along the mesh, choosing the patches
    // that surround/affect the slice we are interested in.
+
    // A SlicePatchContext will contain all the necessary information to
    // evaluate our slice's surface length within each patch.
    SlicePatchContext context;
@@ -1663,6 +1665,7 @@ MeshEntity::GenScaledDistanceValues(SliceType sliceType,
    }
 
    // Now we may adjust the distance values based on scaling/tiling input.
+
    // If there's a reference slice, we're going to need to know the total slice
    // length, so save that away.
    float refTotalLength;

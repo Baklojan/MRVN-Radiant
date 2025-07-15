@@ -24,7 +24,6 @@
 #include "DBrush.h"
 
 #include <list>
-#include "str.h"
 
 #include "DPoint.h"
 #include "DPlane.h"
@@ -47,8 +46,7 @@
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-DBrush::DBrush( int ID ){
-	m_nBrushID = ID;
+DBrush::DBrush(){
 	bBoundsBuilt = false;
 	QER_entity = NULL;
 	QER_brush = NULL;
@@ -65,7 +63,7 @@ DBrush::~DBrush(){
 
 DPlane* DBrush::AddFace( const vec3_t va, const vec3_t vb, const vec3_t vc, const _QERFaceData* texData ){
 #ifdef _DEBUG
-//	Sys_Printf("(%f %f %f) (%f %f %f) (%f %f %f)\n", va[0], va[1], va[2], vb[0], vb[1], vb[2], vc[0], vc[1], vc[2]);
+//	Sys_Printf( "(%f %f %f) (%f %f %f) (%f %f %f)\n", va[0], va[1], va[2], vb[0], vb[1], vb[2], vc[0], vc[1], vc[2] );
 #endif
 	bBoundsBuilt = false;
 	DPlane* newFace = new DPlane( va, vb, vc, texData );
@@ -101,20 +99,20 @@ int DBrush::BuildPoints(){
 							AddPoint( pnt );
 						}
 /*						else
-                            Sys_Printf("Duplicate Point Found, pyramids ahoy!!!!!\n");*/
+                            Sys_Printf( "Duplicate Point Found, pyramids ahoy!!!!!\n" );*/
 						// point lies on more that 3 planes
 					}
 
 					// otherwise point is removed due to another plane..
 
-					// Sys_Printf("(%f, %f, %f)\n", pnt[0], pnt[1], pnt[2]);
+					// Sys_Printf( "(%f, %f, %f)\n", pnt[0], pnt[1], pnt[2] );
 				}
 			}
 		}
 	}
 
 #ifdef _DEBUG
-//	Sys_Printf("%i points on brush\n", pointList.size());
+//	Sys_Printf( "%i points on brush\n", pointList.size() );
 #endif
 
 	return static_cast<int>( pointList.size() );
@@ -242,7 +240,7 @@ int DBrush::RemoveRedundantPlanes(){
 	//-djbob
 
 	if ( pointList.size() == 0 ) { // if points may not have been built, build them
-/*		if(BuildPoints() == 0)	// just let the planes die if they are all bad
+/*		if( BuildPoints() == 0 )	// just let the planes die if they are all bad
 			return cnt;*/
 		BuildPoints();
 	}
@@ -310,7 +308,7 @@ bool DBrush::BBoxCollision( DBrush* chkBrush ){
 	return true;
 }
 
-DPlane* DBrush::HasPlane( DPlane* chkPlane ){
+DPlane* DBrush::HasPlane( DPlane* chkPlane ) const {
 	for ( DPlane *plane : faceList )
 	{
 		if ( *plane == *chkPlane ) {
@@ -412,6 +410,12 @@ scene::Node* DBrush::BuildInRadiant( bool allowDestruction, int* changeCnt, scen
 	QER_brush = node.get_pointer();
 
 	return node.get_pointer();
+}
+
+void DBrush::selectInRadiant() const {
+	ASSERT_MESSAGE( QER_entity != nullptr, "QER_entity == nullptr" );
+	ASSERT_MESSAGE( QER_brush != nullptr, "QER_brush == nullptr" );
+	select_primitive( QER_brush, QER_entity );
 }
 
 void DBrush::CutByPlane( DPlane *cutPlane, DBrush **newBrush1, DBrush **newBrush2 ){
@@ -614,22 +618,13 @@ bool DBrush::BBoxTouch( DBrush *chkBrush ){
 	return true;
 }
 
-void DBrush::ResetChecks( std::list<Str>* exclusionList ){
+void DBrush::ResetChecks( const std::vector<CopiedString>& exclusionList ){
 	for ( DPlane *plane : faceList )
 	{
-		bool set = false;
-
-		if ( exclusionList ) {
-			for ( const Str& texture : *exclusionList )
-			{
-				if ( strstr( plane->m_shader.c_str(), texture.GetBuffer() ) ) {
-					set = true;
-					break;
-				}
-			}
-		}
-
-		plane->m_bChkOk = set;
+		plane->m_bChkOk = std::any_of( exclusionList.cbegin(), exclusionList.cend(),
+			[plane]( const CopiedString& texture ){
+				return strstr( plane->m_shader.c_str(), texture.c_str() ) != nullptr;
+			} );
 	}
 }
 
@@ -799,7 +794,7 @@ bool DBrush::ResetTextures( const char* textureName, float fScale[2],     float 
 	}
 }
 
-bool DBrush::operator ==( DBrush* other ){
+bool DBrush::operator ==( const DBrush* other ) const {
 	for ( DPlane *plane : faceList )
 	{
 		if ( !other->HasPlane( plane ) ) {

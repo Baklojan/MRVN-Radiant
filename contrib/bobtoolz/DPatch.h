@@ -48,8 +48,8 @@ class Instance;
 
 #define MAX_PATCH_WIDTH 32
 #define MAX_PATCH_HEIGHT 32
-#define MIN_PATCH_WIDTH 2
-#define MIN_PATCH_HEIGHT 2
+#define MIN_PATCH_WIDTH 3
+#define MIN_PATCH_HEIGHT 3
 
 class DPatch
 {
@@ -58,7 +58,7 @@ public:
 	std::list<DPatch> SplitCols();
 	std::list<DPatch> Split();
 	void Transpose();
-//DPatch* TransposePatch(DPatch* p1);
+//DPatch* TransposePatch( DPatch* p1 );
 //void DebugPrint();
 	void Invert();
 	DPatch* MergePatches( patch_merge_t merge_info, DPatch& p1, DPatch& p2 );

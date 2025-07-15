@@ -291,6 +291,7 @@ void Portals_constructShaders(){
 	state.m_colour[1] = portals.fp_color_2d[1];
 	state.m_colour[2] = portals.fp_color_2d[2];
 	state.m_colour[3] = portals.fp_color_2d[3];
+
 	GlobalOpenGLStateLibrary().insert( g_state_wireframe, state );
 
 	GlobalOpenGLStateLibrary().getDefaultState( state );

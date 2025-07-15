@@ -31,16 +31,19 @@ class DWinding
 {
 public:
 	DWinding();
+	DWinding( DWinding&& other ) noexcept;
+	DWinding& operator=( DWinding&& other ) noexcept;
 	virtual ~DWinding();
 
 	void AllocWinding( int points );
 
 	bool ChopWinding( DPlane* chopPlane );
-	bool ChopWindingInPlace( DPlane* chopPlane, vec_t ON_EPSILON );
+	bool ChopWindingInPlace( const DPlane* chopPlane, vec_t ON_EPSILON );
 	void ClipWindingEpsilon( DPlane* chopPlane, vec_t epsilon, DWinding** front, DWinding** back );
 
 	void CheckWinding();
 	void WindingCentre( vec3_t centre );
+	void WindingCentroid( vec3_t centroid ) const;
 	void WindingBounds( vec3_t mins, vec3_t maxs );
 	void RemoveColinearPoints();
 
@@ -55,9 +58,8 @@ public:
 //	members
 	int numpoints;
 	vec3_t* p;
-	vec3_t clr;
 };
 
-#define MAX_POINTS_ON_WINDING   64
+#define MAX_POINTS_ON_WINDING   256
 
 #define ON_EPSILON  0.01

@@ -23,8 +23,7 @@
 
 #include "DEntity.h"
 
-#include <list>
-#include "str.h"
+#include <utility>
 
 #include "DPoint.h"
 #include "DPlane.h"
@@ -42,33 +41,10 @@
 
 #include "generic/referencecounted.h"
 
-#include <vector>
-#include <list>
-#include <map>
 #include <algorithm>
 
 #include "scenelib.h"
 
-
-const char* brushEntityList[] = {
-	"worldspawn",
-	"trigger_always",
-	"trigger_hurt",
-	"trigger_multiple",
-	"trigger_push",
-	"trigger_teleport",
-	"func_bobbing",
-	"func_button",
-	"func_door",
-	"func_group",
-	"func_pendulum",
-	"func_plat",
-	"func_rotating",
-	"func_static",
-	"func_timer",
-	"func_train",
-	0
-};
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -107,19 +83,11 @@ void DEntity::ClearPatches(){
 }
 
 DPatch* DEntity::NewPatch(){
-	DPatch* newPatch = new DPatch;
-
-	patchList.push_back( newPatch );
-
-	return newPatch;
+	return patchList.emplace_back( new DPatch );
 }
 
-DBrush* DEntity::NewBrush( int ID ){
-	DBrush* newBrush = new DBrush( ID );
-
-	brushList.push_back( newBrush );
-
-	return newBrush;
+DBrush* DEntity::NewBrush(){
+	return brushList.emplace_back( new DBrush );
 }
 
 char* getNextBracket( char* s ){
@@ -191,30 +159,6 @@ bool DEntity::LoadFromPrt( char *filename ){
 	return true;
 }
 
-DPlane* DEntity::AddFaceToBrush( vec3_t va, vec3_t vb, vec3_t vc, _QERFaceData* faceData, int ID ){
-	DBrush* buildBrush = GetBrushForID( ID );
-	return buildBrush->AddFace( va, vb, vc, faceData );
-	// slow, dont use much
-}
-
-DBrush* DEntity::GetBrushForID( int ID ){
-	DBrush* buildBrush = NULL;
-
-	for ( DBrush *brush : brushList )
-	{
-		if ( brush->m_nBrushID == ID ) {
-			buildBrush = brush;
-			break;
-		}
-	}
-
-	if ( !buildBrush ) {
-		buildBrush = NewBrush( ID );
-	}
-
-	return buildBrush;
-}
-
 template<typename Functor>
 class BrushSelectedVisitor : public SelectionSystem::Visitor
 {
@@ -236,8 +180,7 @@ inline const Functor& Scene_forEachSelectedBrush( const Functor& functor ){
 }
 
 void DEntity_loadBrush( DEntity& entity, scene::Instance& brush ){
-	DBrush* loadBrush = entity.NewBrush( static_cast<int>( entity.brushList.size() ) );
-	loadBrush->LoadFromBrush( brush, true );
+	entity.NewBrush()->LoadFromBrush( brush, true );
 }
 typedef ReferenceCaller<DEntity, void(scene::Instance&), DEntity_loadBrush> DEntityLoadBrushCaller;
 
@@ -282,22 +225,19 @@ void DEntity::LoadSelectedPatches(){
 }
 
 bool* DEntity::BuildIntersectList(){
-	int max = GetIDMax();
-	if ( max == 0 ) {
-		return NULL;
+	if ( brushList.empty() ) {
+		return nullptr;
 	}
 
-	bool* pbIntList = new bool[max];
-	memset( pbIntList, 0, sizeof( bool ) * ( max ) );
+	bool* pbIntList = new bool[brushList.size()] (); // () zero initialize
 
-	for ( std::list<DBrush *>::const_iterator pB1 = brushList.begin(); pB1 != brushList.end(); pB1++ )
+	for ( size_t i = 0; i < brushList.size(); ++i )
 	{
-		std::list<DBrush *>::const_iterator pB2 = pB1;
-		for ( pB2++; pB2 != brushList.end(); pB2++ )
+		for ( size_t j = i + 1; j < brushList.size(); ++j )
 		{
-			if ( ( *pB1 )->IntersectsWith( ( *pB2 ) ) ) {
-				pbIntList[( *pB1 )->m_nBrushID] = true;
-				pbIntList[( *pB2 )->m_nBrushID] = true;
+			if ( brushList[i]->IntersectsWith( brushList[j] ) ) {
+				pbIntList[i] = true;
+				pbIntList[j] = true;
 			}
 		}
 	}
@@ -306,22 +246,19 @@ bool* DEntity::BuildIntersectList(){
 }
 
 bool* DEntity::BuildDuplicateList(){
-	int max = GetIDMax();
-	if ( max == 0 ) {
-		return NULL;
+	if ( brushList.empty() ) {
+		return nullptr;
 	}
 
-	bool* pbDupList = new bool[max];
-	memset( pbDupList, 0, sizeof( bool ) * ( max ) );
+	bool* pbDupList = new bool[brushList.size()] (); // () zero initialize
 
-	for ( std::list<DBrush *>::const_iterator pB1 = brushList.begin(); pB1 != brushList.end(); pB1++ )
+	for ( size_t i = 0; i < brushList.size(); ++i )
 	{
-		std::list<DBrush *>::const_iterator pB2 = pB1;
-		for ( pB2++; pB2 != brushList.end(); pB2++ )
+		for ( size_t j = i + 1; j < brushList.size(); ++j )
 		{
-			if ( **pB1 == *pB2 ) {
-				pbDupList[( *pB1 )->m_nBrushID] = true;
-				pbDupList[( *pB2 )->m_nBrushID] = true;
+			if ( brushList[i]->operator==( brushList[j] ) ) {
+				pbDupList[i] = true;
+				pbDupList[j] = true;
 			}
 		}
 	}
@@ -336,20 +273,22 @@ void DEntity::SelectBrushes( bool *selectList ){
 
 	GlobalSelectionSystem().setSelectedAll( false );
 
-	scene::Path path( NodeReference( GlobalSceneGraph().root() ) );
-	path.push( NodeReference( *QER_Entity ) );
-
-	for ( DBrush *brush : brushList )
+	for ( size_t i = 0; i < brushList.size(); ++i )
 	{
-		if ( selectList[brush->m_nBrushID] ) {
-			path.push( NodeReference( *brush->QER_brush ) );
-			Instance_getSelectable( *GlobalSceneGraph().find( path ) )->setSelected( true );
-			path.pop();
+		if ( selectList[i] ) {
+			brushList[i]->selectInRadiant();
 		}
 	}
 }
 
-bool DEntity::LoadFromEntity( scene::Node& ent, bool bLoadPatches ) {
+void select_primitive( scene::Node *primitive, scene::Node *entity ){
+	scene::Path path( NodeReference( GlobalSceneGraph().root() ) );
+	path.push( NodeReference( *entity ) );
+	path.push( NodeReference( *primitive ) );
+	Instance_getSelectable( *GlobalSceneGraph().find( path ) )->setSelected( true );
+}
+
+bool DEntity::LoadFromEntity( scene::Node& ent, const LoadOptions options ) {
 	ClearPatches();
 	ClearBrushes();
 	ClearEPairs();
@@ -358,17 +297,7 @@ bool DEntity::LoadFromEntity( scene::Node& ent, bool bLoadPatches ) {
 
 	LoadEPairList( Node_getEntity( ent ) );
 
-	bool keep = false;
-	int i;
-	for ( i = 0; brushEntityList[i]; i++ )
-	{
-		if ( string_equal_nocase( brushEntityList[i], m_Classname ) ) {
-			keep = true;
-			break;
-		}
-	}
-
-	if ( !keep ) {
+	if ( !node_is_group( ent ) ) {
 		return false;
 	}
 
@@ -376,29 +305,37 @@ bool DEntity::LoadFromEntity( scene::Node& ent, bool bLoadPatches ) {
 		class load_brushes_t : public scene::Traversable::Walker
 		{
 			DEntity* m_entity;
-			mutable int m_count;
+			const LoadOptions m_options;
 		public:
-			load_brushes_t( DEntity* entity )
-				: m_entity( entity ), m_count( 0 ){
+			load_brushes_t( DEntity* entity, const LoadOptions options )
+				: m_entity( entity ), m_options( options ){
 			}
 			bool pre( scene::Node& node ) const {
-				scene::Path path( NodeReference( GlobalSceneGraph().root() ) );
-				path.push( NodeReference( *m_entity->QER_Entity ) );
-				path.push( NodeReference( node ) );
-				scene::Instance* instance = GlobalSceneGraph().find( path );
-				ASSERT_MESSAGE( instance != 0, "" );
+				if( !( m_options.loadVisibleOnly && !node.visible() ) ){
+					scene::Path path( NodeReference( GlobalSceneGraph().root() ) );
+					path.push( NodeReference( *m_entity->QER_Entity ) );
+					path.push( NodeReference( node ) );
+					scene::Instance* instance = GlobalSceneGraph().find( path );
+					ASSERT_MESSAGE( instance != 0, "" );
 
-				if ( Node_isPatch( node ) ) {
-					DPatch* loadPatch = m_entity->NewPatch();
-					loadPatch->LoadFromPatch( *instance );
+					if( !( m_options.loadSelectedOnly && Instance_isSelected( *instance ) ) ){
+						if ( Node_isPatch( node ) ) {
+							if( m_options.loadPatches )
+								m_entity->NewPatch()->LoadFromPatch( *instance );
+						}
+						else if ( Node_isBrush( node ) ) {
+							m_entity->NewBrush()->LoadFromBrush( *instance, true );
+							if( !m_options.loadDetail && m_entity->brushList.back()->IsDetail() ){
+								delete m_entity->brushList.back();
+								m_entity->brushList.pop_back();
+							}
+						}
+					}
 				}
-				else if ( Node_isBrush( node ) ) {
-					DBrush* loadBrush = m_entity->NewBrush( m_count++ );
-					loadBrush->LoadFromBrush( *instance, true );
-				}
+
 				return false;
 			}
-		} load_brushes( this );
+		} load_brushes( this, options );
 
 		Node_getTraversable( ent )->traverse( load_brushes );
 	}
@@ -406,37 +343,17 @@ bool DEntity::LoadFromEntity( scene::Node& ent, bool bLoadPatches ) {
 	return true;
 }
 
-void DEntity::RemoveNonCheckBrushes( std::list<Str>* exclusionList, bool useDetail ){
-	std::list<DBrush *>::iterator chkBrush = brushList.begin();
-
-	while ( chkBrush != brushList.end() )
-	{
-		if ( !useDetail ) {
-			if ( ( *chkBrush )->IsDetail() ) {
-				delete *chkBrush;
-				chkBrush = brushList.erase( chkBrush );
-				continue;
-			}
+void DEntity::RemoveNonCheckBrushes( const std::vector<CopiedString>& exclusionList ){
+	std::erase_if( brushList, [&]( DBrush *brush ){
+		if ( std::any_of( exclusionList.cbegin(), exclusionList.cend(), [brush]( const CopiedString& tex ){ return brush->HasTexture( tex.c_str() ); } ) ) {
+			delete brush;
+			return true;
 		}
-
-		std::list<Str>::iterator eTexture;
-
-		for ( eTexture = exclusionList->begin(); eTexture != exclusionList->end(); eTexture++ )
-		{
-			if ( ( *chkBrush )->HasTexture( ( *eTexture ).GetBuffer() ) ) {
-				delete *chkBrush;
-				chkBrush = brushList.erase( chkBrush );
-				break;
-			}
-		}
-
-		if ( eTexture == exclusionList->end() ) {
-			chkBrush++;
-		}
-	}
+		return false;
+	} );
 }
 
-void DEntity::ResetChecks( std::list<Str>* exclusionList ){
+void DEntity::ResetChecks( const std::vector<CopiedString>& exclusionList ){
 	for ( DBrush *brush : brushList )
 	{
 		brush->ResetChecks( exclusionList );
@@ -455,14 +372,14 @@ int DEntity::FixBrushes(){
 }
 
 void DEntity::BuildInRadiant( bool allowDestruction ){
-	bool makeEntity = strcmp( m_Classname, "worldspawn" ) ? true : false;
+	const bool makeEntity = m_Classname != "worldspawn";
 
 	if ( makeEntity ) {
-		NodeSmartReference node( GlobalEntityCreator().createEntity( GlobalEntityClassManager().findOrInsert( m_Classname.GetBuffer(), !brushList.empty() || !patchList.empty() ) ) );
+		NodeSmartReference node( GlobalEntityCreator().createEntity( GlobalEntityClassManager().findOrInsert( m_Classname.c_str(), !brushList.empty() || !patchList.empty() ) ) );
 
-		for ( const DEPair *epair : epairList )
+		for ( const DEPair& epair : epairList )
 		{
-			Node_getEntity( node )->setKeyValue( epair->key, epair->value );
+			Node_getEntity( node )->setKeyValue( epair.key.c_str(), epair.value.c_str() );
 		}
 
 		Node_getTraversable( GlobalSceneGraph().root() )->insert( node );
@@ -487,16 +404,6 @@ void DEntity::BuildInRadiant( bool allowDestruction ){
 
 
 
-int DEntity::GetIDMax( void ) {
-	int max = -1;
-	for ( const DBrush *brush : brushList ) {
-		if ( brush->m_nBrushID > max ) {
-			max = brush->m_nBrushID;
-		}
-	}
-	return max + 1;
-}
-
 void DEntity::SetClassname( const char *classname ) {
 	m_Classname = classname;
 }
@@ -504,11 +411,11 @@ void DEntity::SetClassname( const char *classname ) {
 void DEntity::SaveToFile( FILE *pFile ){
 	fprintf( pFile, "{\n" );
 
-	fprintf( pFile, "\"classname\" \"%s\"\n", (const char *)m_Classname );
+	fprintf( pFile, "\"classname\" \"%s\"\n", m_Classname.c_str() );
 
-	for ( const DEPair *ep : epairList )
+	for ( const DEPair& ep : epairList )
 	{
-		fprintf( pFile, "\"%s\" \"%s\"\n", (const char *)ep->key, (const char *)ep->value );
+		fprintf( pFile, "\"%s\" \"%s\"\n", ep.key.c_str(), ep.value.c_str() );
 	}
 
 	for ( DBrush *brush : brushList )
@@ -520,23 +427,15 @@ void DEntity::SaveToFile( FILE *pFile ){
 }
 
 void DEntity::ClearEPairs(){
-	for ( DEPair *epair : epairList )
-	{
-		delete epair;
-	}
 	epairList.clear();
 }
 
 void DEntity::AddEPair( const char *key, const char *value ) {
-	DEPair* newEPair;
-	newEPair = FindEPairByKey( key );
-	if ( !newEPair ) {
-		newEPair = new DEPair;
-		newEPair->Build( key, value );
-		epairList.push_back( newEPair );
+	if ( DEPair* pair = FindEPairByKey( key ) ) {
+		*pair = DEPair( key, value );
 	}
 	else {
-		newEPair->Build( key, value );
+		epairList.push_back( DEPair( key, value ) );
 	}
 }
 
@@ -596,13 +495,13 @@ bool DEntity::ResetTextures( const char* textureName, float fScale[2],     float
 }
 
 DEPair* DEntity::FindEPairByKey( const char* keyname ){
-	for ( DEPair *ep : epairList )
+	for ( DEPair& ep : epairList )
 	{
-		if ( !strcmp( ep->key, keyname ) ) {
-			return ep;
+		if ( ep.key == keyname ) {
+			return &ep;
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 void DEntity::RemoveFromRadiant(){
@@ -614,7 +513,7 @@ void DEntity::RemoveFromRadiant(){
 void DEntity::SpawnString( const char* key, const char* defaultstring, const char** out ){
 	DEPair* pEP = FindEPairByKey( key );
 	if ( pEP ) {
-		*out = pEP->value;
+		*out = pEP->value.c_str();
 	}
 	else {
 		*out = defaultstring;
@@ -624,7 +523,7 @@ void DEntity::SpawnString( const char* key, const char* defaultstring, const cha
 void DEntity::SpawnInt( const char* key, const char* defaultstring, int* out ){
 	DEPair* pEP = FindEPairByKey( key );
 	if ( pEP ) {
-		*out = atoi( pEP->value );
+		*out = atoi( pEP->value.c_str() );
 	}
 	else {
 		*out = atoi( defaultstring );
@@ -634,7 +533,7 @@ void DEntity::SpawnInt( const char* key, const char* defaultstring, int* out ){
 void DEntity::SpawnFloat( const char* key, const char* defaultstring, float* out ){
 	DEPair* pEP = FindEPairByKey( key );
 	if ( pEP ) {
-		*out = static_cast<float>( atof( pEP->value ) );
+		*out = static_cast<float>( atof( pEP->value.c_str() ) );
 	}
 	else {
 		*out = static_cast<float>( atof( defaultstring ) );
@@ -644,7 +543,7 @@ void DEntity::SpawnFloat( const char* key, const char* defaultstring, float* out
 void DEntity::SpawnVector( const char* key, const char* defaultstring, vec_t* out ){
 	DEPair* pEP = FindEPairByKey( key );
 	if ( pEP ) {
-		sscanf( pEP->value, "%f %f %f", &out[0], &out[1], &out[2] );
+		sscanf( pEP->value.c_str(), "%f %f %f", &out[0], &out[1], &out[2] );
 	}
 	else {
 		sscanf( defaultstring, "%f %f %f", &out[0], &out[1], &out[2] );

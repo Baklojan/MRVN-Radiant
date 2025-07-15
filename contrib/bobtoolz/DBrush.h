@@ -25,8 +25,9 @@
 
 #include <cstdio>
 #include <list>
+#include <vector>
 #include "mathlib.h"
-#include "str.h"
+#include "string/string.h"
 
 class DPlane;
 class DWinding;
@@ -53,7 +54,7 @@ public:
 	void RotateAboutCentre( vec3_t vRotation );
 
 	DPlane* HasPlaneInverted( DPlane* chkPlane );
-	DPlane* HasPlane( DPlane* chkPlane );
+	DPlane* HasPlane( DPlane* chkPlane ) const;
 	DPlane* AddFace( const vec3_t va, const vec3_t vb, const vec3_t vc, const _QERFaceData* texData );
 
 	bool ResetTextures( const char* textureName, float fScale[2], float fShift[2], int rotation, const char* newTextureName, bool bResetTextureName, bool bResetScale[2], bool bResetShift[2], bool bResetRotation );
@@ -71,8 +72,9 @@ public:
 	void BuildBounds();
 	void BuildFromWinding( DWinding* w );
 	scene::Node* BuildInRadiant( bool allowDestruction, int* changeCnt, scene::Node* entity = NULL );
+	void selectInRadiant() const;
 
-	void ResetChecks( std::list<Str>* exclusionList );
+	void ResetChecks( const std::vector<CopiedString>& exclusionList );
 
 	void ClearFaces();
 	void ClearPoints();
@@ -90,17 +92,17 @@ public:
 	DPlane* FindPlaneWithClosestNormal( vec_t* normal );
 	int FindPointsForPlane( DPlane* plane, DPoint** pnts, int maxpnts );
 
-	DBrush( int ID = -1 );
+	DBrush();
+	DBrush( DBrush&& ) noexcept = delete;
 	virtual ~DBrush();
 
-	bool operator==( DBrush* other );
+	bool operator==( const DBrush* other ) const;
 
 //	members
 	scene::Node* QER_entity;
 	scene::Node* QER_brush;
 	std::list<DPlane*> faceList;
 	std::list<DPoint*> pointList;
-	int m_nBrushID;
 	vec3_t bbox_min, bbox_max;
 	bool bBoundsBuilt;
 };

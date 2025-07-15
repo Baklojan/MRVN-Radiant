@@ -19,9 +19,6 @@
 
 #include "misc.h"
 
-#include <list>
-#include "str.h"
-
 #include "DPoint.h"
 #include "DPlane.h"
 #include "DBrush.h"
@@ -42,8 +39,6 @@
 #include "qerplugin.h"
 
 #include <vector>
-#include <list>
-#include <map>
 #include <algorithm>
 
 #include "scenelib.h"
@@ -172,13 +167,13 @@ const char* ExtractFilename( const char* path ){
 }
 
 extern char* PLUGIN_NAME;
-/*char* GetGameFilename(char* buffer, const char* filename)
+/*char* GetGameFilename( char* buffer, const char* filename )
    {
-    strcpy(buffer, g_FuncTable.m_pfnGetGamePath());
-    char* p = strrchr(buffer, '/');
+    strcpy( buffer, g_FuncTable.m_pfnGetGamePath() );
+    char* p = strrchr( buffer, '/' );
    *++p = '\0';
-    strcat(buffer, filename);
-    buffer = UnixToDosPath(buffer);
+    strcat( buffer, filename );
+    buffer = UnixToDosPath( buffer );
     return buffer;
    }*/
 
@@ -206,17 +201,17 @@ class EntityWriteMiniPrt
 {
 	mutable DEntity world;
 	FILE* pFile;
-	std::list<Str>* exclusionList;
+	const std::vector<CopiedString>& exclusionList;
 public:
-	EntityWriteMiniPrt( FILE* pFile, std::list<Str>* exclusionList )
+	EntityWriteMiniPrt( FILE* pFile, const std::vector<CopiedString>& exclusionList )
 		: pFile( pFile ), exclusionList( exclusionList ){
 	}
 	void operator()( scene::Instance& instance ) const {
 		const char* classname = Node_getEntity( instance.path().top() )->getClassName();
 
-		if ( !strcmp( classname, "worldspawn" ) ) {
-			world.LoadFromEntity( instance.path().top(), false );
-			world.RemoveNonCheckBrushes( exclusionList, true );
+		if ( string_equal( classname, "worldspawn" ) ) {
+			world.LoadFromEntity( instance.path().top() );
+			world.RemoveNonCheckBrushes( exclusionList );
 			world.SaveToFile( pFile );
 		}
 		else if ( strstr( classname, "info_" ) ) {
@@ -228,7 +223,7 @@ public:
 	}
 };
 
-void BuildMiniPrt( std::list<Str>* exclusionList ){
+void BuildMiniPrt( const std::vector<CopiedString>& exclusionList ){
 	// yes, we could just use -fulldetail option, but, as SPOG said
 	// it'd be faster without all the hint, donotenter etc textures and
 	// doors, etc
@@ -282,7 +277,7 @@ const scene::Path* FindEntityFromTargetname( const char* targetname ){
 	return Scene_forEachEntity( EntityFindByKeyValue( "targetname", targetname ) ).result;
 }
 
-void FillDefaultTexture( _QERFaceData* faceData, vec3_t va, vec3_t vb, vec3_t vc, const char* texture ){
+void FillDefaultTexture( _QERFaceData* faceData, const vec3_accu_t va, const vec3_accu_t vb, const vec3_accu_t vc, const char* texture ){
 	faceData->m_texdef.rotate = 0;
 	faceData->m_texdef.scale[0] = 0.5;
 	faceData->m_texdef.scale[1] = 0.5;
