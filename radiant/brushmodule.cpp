@@ -104,9 +104,9 @@ void Brush_constructPreferences( PreferencesPage& page ){
 	                     g_brush_always_caulk
 	                   );
 	page.appendCheckBox(
-		"Dangerous!", "Snap planes to integer grid (may break brushes)",
-		makeCallbackF( Face_importSnapPlanes ),
-		makeCallbackF( Face_exportSnapPlanes )
+	    "Dangerous!", "Snap planes to integer grid (may break brushes)",
+	    makeCallbackF( Face_importSnapPlanes ),
+	    makeCallbackF( Face_exportSnapPlanes )
 	);
 }
 void Brush_constructPage( PreferenceGroup& group ){

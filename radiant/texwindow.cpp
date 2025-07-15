@@ -250,7 +250,7 @@ public:
 		m_showShaders( true ),
 		m_showTextures( true ),
 		m_showTextureScrollbar( true ),
-		m_startupShaders( STARTUPSHADERS_COMMON ),
+		m_startupShaders( STARTUPSHADERS_NONE ),
 		m_hideUnused( false ),
 		m_searchedTags( false ),
 		m_tags( false ),
@@ -945,17 +945,12 @@ void TextureBrowser::draw(){
 		}
 
 		const auto [ x, y ] = layout.nextPos( *this, shader->getTexture() );
-		qtexture_t *texture = shader->getTexture();
-		if ( !texture ) {
+		qtexture_t *q = shader->getTexture();
+		if ( !q ) {
 			break;
 		}
 
-		qtexture_t *texture2 = shader->getTexture2();
-		if ( !texture2 ) {
-			break;
-		}
-
-		const auto [nWidth, nHeight] = getTextureWH( texture );
+		const auto [nWidth, nHeight] = getTextureWH( q );
 
 		// Is this texture visible?
 		if ( ( y - nHeight - fontHeight < originy )
@@ -1029,49 +1024,28 @@ void TextureBrowser::draw(){
 
 			// Draw the texture
 			gl().glEnable( GL_TEXTURE_2D );
-			// Texture 1
-			gl().glBindTexture( GL_TEXTURE_2D, texture->texture_number );
+			gl().glBindTexture( GL_TEXTURE_2D, q->texture_number );
 			GlobalOpenGL_debugAssertNoErrors();
 			gl().glColor3f( 1, 1, 1 );
-
-			gl().glBegin( GL_TRIANGLES );
-			// Triangle 1
+			gl().glBegin( GL_QUADS );
 			gl().glTexCoord2i( 0, 0 );
 			gl().glVertex2i( x, y - fontHeight );
 			gl().glTexCoord2i( 1, 0 );
 			gl().glVertex2i( x + nWidth, y - fontHeight );
-			gl().glTexCoord2i( 0, 1 );
-			gl().glVertex2i( x, y - fontHeight - nHeight );
-
-			gl().glEnd();
-			// Texture 2
-			gl().glBindTexture( GL_TEXTURE_2D, texture2->texture_number );
-			GlobalOpenGL_debugAssertNoErrors();
-			gl().glColor3f( 1, 1, 1 );
-			gl().glBegin( GL_TRIANGLES );
-
-			// Triangle 2
-			gl().glTexCoord2i( 1, 0 );
-			gl().glVertex2i( x + nWidth, y - fontHeight );
-			gl().glTexCoord2i( 0, 1 );
-			gl().glVertex2i( x, y - fontHeight - nHeight );
 			gl().glTexCoord2i( 1, 1 );
 			gl().glVertex2i( x + nWidth, y - fontHeight - nHeight );
+			gl().glTexCoord2i( 0, 1 );
+			gl().glVertex2i( x, y - fontHeight - nHeight );
 			gl().glEnd();
 
 			// draw the texture name
-//			glDisable( GL_TEXTURE_2D );
-//			glColor3f( 1, 1, 1 ); //already set
+//			gl().glDisable( GL_TEXTURE_2D );
+//			gl().glColor3f( 1, 1, 1 ); //already set
 
 			gl().glRasterPos2i( x, y - fontHeight - fontDescent + 3 );//+5
 
 			// don't draw the directory name
-			const char* name = shader->getName();
-			name += strlen( name );
-			while ( name != shader->getName() && *( name - 1 ) != '/' && *( name - 1 ) != '\\' )
-				name--;
-
-			GlobalOpenGL().drawString( name );
+			GlobalOpenGL().drawString( path_get_filename_start( shader->getName() ) );
 		}
 	}
 
@@ -1119,43 +1093,36 @@ void TextureBrowser_ToggleHideUnused(){
 void TextureGroups_constructTreeModel( TextureGroups groups, QStandardItemModel* model ){
 	auto root = model->invisibleRootItem();
 
-	QStandardItem *iter[TEX_MAX_FOLDER_DEPTH + 1] = {};
-	iter[0] = root;
-
-	// Loop through every path
 	TextureGroups::const_iterator i = groups.begin();
 	while ( i != groups.end() )
 	{
 		const char* dirName = ( *i ).c_str();
-		int depth = 1;
+		const char* firstUnderscore = strchr( dirName, '_' );
+		StringRange dirRoot( dirName, ( firstUnderscore == 0 ) ? dirName : firstUnderscore + 1 );
 
-		CopiedString cutPath = CopiedString( dirName );
+		TextureGroups::const_iterator next = std::next( i );
+		if ( firstUnderscore != 0
+		  && next != groups.end()
+		  && string_equal_start( ( *next ).c_str(), dirRoot ) ) {
+			auto subroot = new QStandardItem( CopiedString( StringRange( dirName, firstUnderscore ) ).c_str() );
+			root->appendRow( subroot );
 
-		// Find out the depth of the current folder
-		// We can happily index into 'iter' without worrying about null pointers
-		// because this is how 'groups' looks: (this is just an example)
-		// world/
-		// world/dev/
-		// world/dev/concrete/
-		// tools
-		// models/
-		// models/editor/
-		// 'iter[0]' is the root of the list which the user doesnt see
-		const char *separator = strchr( cutPath.c_str(), '/' );
-		while( separator != nullptr && depth < TEX_MAX_FOLDER_DEPTH + 1) {
-			cutPath = StringRange( path_remove_directory( cutPath.c_str() ), path_get_filename_base_end( cutPath.c_str() ) );
-
-			separator = strchr( cutPath.c_str(), '/' );
-
-			depth++;
+			// keep going...
+			while ( i != groups.end() && string_equal_start( ( *i ).c_str(), dirRoot ) )
+			{
+				auto item = new QStandardItem( ( *i ).c_str() );
+				item->setData( ( *i ).c_str(), Qt::ItemDataRole::ToolTipRole );
+				subroot->appendRow( item );
+				++i;
+			}
 		}
-
-		auto item = new QStandardItem( cutPath.c_str() );
-		item->setData( dirName, Qt::ItemDataRole::ToolTipRole );
-		iter[depth - 1]->appendRow( item );
-		iter[depth] = item;
-
-		i++;
+		else
+		{
+			auto item = new QStandardItem( dirName );
+			item->setData( dirName, Qt::ItemDataRole::ToolTipRole );
+			root->appendRow( item );
+			++i;
+		}
 	}
 }
 
@@ -1186,7 +1153,7 @@ void TextureGroups_constructTreeView( TextureGroups& groups ){
 	{
 		// scan texture dirs and pak files only if not restricting to shaderlist
 		if ( g_pGameDescription->mGameType != "doom3" && !g_TextureBrowser_shaderlistOnly ) {
-			GlobalFileSystem().forEachDirectory( "textures/", TextureGroupsAddDirectoryCaller( groups ), TEX_MAX_FOLDER_DEPTH );
+			GlobalFileSystem().forEachDirectory( "textures/", TextureGroupsAddDirectoryCaller( groups ) );
 		}
 
 		GlobalShaderSystem().foreachShaderName( TextureGroupsAddShaderCaller( groups ) );
@@ -1245,7 +1212,7 @@ void TextureBrowser_createTreeViewTree(){
 	g_TexBro.m_treeView->setUniformRowHeights( true ); // optimization
 	g_TexBro.m_treeView->setFocusPolicy( Qt::FocusPolicy::ClickFocus );
 	g_TexBro.m_treeView->setExpandsOnDoubleClick( false );
-	g_TexBro.m_treeView->header()->setStretchLastSection( false ); // non greedy column sizing; + QHeaderView::ResizeMode::ResizeToContents = no text elision 
+	g_TexBro.m_treeView->header()->setStretchLastSection( false ); // non greedy column sizing; + QHeaderView::ResizeMode::ResizeToContents = no text elision 🤷‍♀️
 	g_TexBro.m_treeView->header()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
 
 	QObject::connect( g_TexBro.m_treeView, &QAbstractItemView::activated, TreeView_onRowActivated );
@@ -1295,10 +1262,6 @@ static QMenu* TextureBrowser_constructViewMenu(){
 	}
 
 	return menu;
-}
-
-void Popup_View_Menu( QMenu *menu ){
-	menu->popup( QCursor::pos() );
 }
 
 
@@ -1511,11 +1474,11 @@ void TextureBrowser_checkTagFile(){
 
 	if ( file_exists( rc_filename ) && TagBuilder.OpenXmlDoc( rc_filename ) )
 	{
-		globalOutputStream() << "Loaded tag file " << rc_filename.c_str() << ".\n";
+		globalOutputStream() << "Loaded tag file " << rc_filename << ".\n";
 	}
 	else if ( file_exists( default_filename ) && TagBuilder.OpenXmlDoc( default_filename, rc_filename ) ) // load default tagfile
 	{
-		globalOutputStream() << "Loaded default tag file " << default_filename.c_str() << ".\n";
+		globalOutputStream() << "Loaded default tag file " << default_filename << ".\n";
 	}
 	else
 	{
@@ -1764,7 +1727,7 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 		menu_view->setParent( toolbar, menu_view->windowFlags() ); //don't reset windowFlags
 
 		//view menu button
-		toolbar_append_button( toolbar, "View", "texbro_view.png", PointerCaller<QMenu, void(), Popup_View_Menu>( menu_view ) );
+		toolbar_append_button( toolbar, "View", "texbro_view.png", PointerCaller<QMenu, void(), +[]( QMenu *menu ){ menu->popup( QCursor::pos() ); }>( menu_view ) );
 
 		toolbar_append_button( toolbar, "Find / Replace...", "texbro_gtk-find-and-replace.png", "FindReplaceTextures" );
 
@@ -1806,7 +1769,7 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 		scroll->setVisible( g_TexBro.m_showTextureScrollbar );
 	}
 
-	/* { // tag stuff
+	{ // tag stuff
 		g_TexBro.m_tagsListWidget = new Tags_QListWidget;
 		g_TexBro.m_tagsListWidget->setSortingEnabled( true );
 		g_TexBro.m_tagsListWidget->setSelectionMode( QAbstractItemView::SelectionMode::ExtendedSelection );
@@ -1831,16 +1794,16 @@ QWidget* TextureBrowser_constructWindow( QWidget* toplevel ){
 
 		//show detached menu over floating tex bro and main wnd...
 		g_TexBro.m_tagsMenu->setParent( g_TexBro.m_tagsListWidget, g_TexBro.m_tagsMenu->windowFlags() ); //don't reset windowFlags
-	}*/
-	
+	}
+
 	{	// Texture/Tag notebook
 		g_TexBro.m_tabs = new QTabWidget;
 		g_TexBro.m_tabs->setFocusPolicy( Qt::FocusPolicy::ClickFocus );
 		g_TexBro.m_tabs->setDocumentMode( true );
 		g_TexBro.m_tabs->setTabBarAutoHide( true );
 		g_TexBro.m_tabs->addTab( g_TexBro.m_treeView, "Textures" );
-		//static_cast<QObject*>( g_TexBro.m_tagsListWidget )->setParent( g_TexBro.m_tabs );
-		//TextureBrowser_tagsEnableGui( g_TexBro.m_tags );
+		static_cast<QObject*>( g_TexBro.m_tagsListWidget )->setParent( g_TexBro.m_tabs );
+		TextureBrowser_tagsEnableGui( g_TexBro.m_tags );
 		vbox->addWidget( g_TexBro.m_tabs );
 
 		QObject::connect( g_TexBro.m_tabs, &QTabWidget::currentChanged, []( int index ){
@@ -2096,11 +2059,11 @@ void TextureBrowser_Construct(){
 	                                             SizeExportStringCaller( g_TexBro.m_textureScale )
 	                                           );
 	GlobalPreferenceSystem().registerPreference( "UniformTextureSize",
-	                                             makeIntStringImportCallback(UniformTextureSizeImportCaller(g_TexBro)),
-	                                             IntExportStringCaller(g_TexBro.m_uniformTextureSize) );
+	                                             makeIntStringImportCallback( UniformTextureSizeImportCaller( g_TexBro ) ),
+	                                             IntExportStringCaller( g_TexBro.m_uniformTextureSize ) );
 	GlobalPreferenceSystem().registerPreference( "UniformTextureMinSize",
-	                                             makeIntStringImportCallback(UniformTextureMinSizeImportCaller(g_TexBro)),
-	                                             IntExportStringCaller(g_TexBro.m_uniformTextureMinSize) );
+	                                             makeIntStringImportCallback( UniformTextureMinSizeImportCaller( g_TexBro ) ),
+	                                             IntExportStringCaller( g_TexBro.m_uniformTextureMinSize ) );
 	GlobalPreferenceSystem().registerPreference( "TextureScrollbar",
 	                                             makeBoolStringImportCallback( TextureBrowserImportShowScrollbarCaller( g_TexBro ) ),
 	                                             BoolExportStringCaller( g_TexBro.m_showTextureScrollbar )
@@ -2115,7 +2078,7 @@ void TextureBrowser_Construct(){
 	GlobalPreferenceSystem().registerPreference( "SearchFromStart", BoolImportStringCaller( g_TextureBrowser_filter_searchFromStart ), BoolExportStringCaller( g_TextureBrowser_filter_searchFromStart ) );
 	GlobalPreferenceSystem().registerPreference( "LoadShaders", IntImportStringCaller( reinterpret_cast<int&>( g_TexBro.m_startupShaders ) ), IntExportStringCaller( reinterpret_cast<int&>( g_TexBro.m_startupShaders ) ) );
 	GlobalPreferenceSystem().registerPreference( "WheelMouseInc", IntImportStringCaller( g_TexBro.m_mouseWheelScrollIncrement ), IntExportStringCaller( g_TexBro.m_mouseWheelScrollIncrement ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors0", Vector3ImportStringCaller( g_TexBro.m_color_textureback ), Vector3ExportStringCaller( g_TexBro.m_color_textureback ) );
+	GlobalPreferenceSystem().registerPreference( "ColorTexBroBackground", Vector3ImportStringCaller( g_TexBro.m_color_textureback ), Vector3ExportStringCaller( g_TexBro.m_color_textureback ) );
 	GlobalPreferenceSystem().registerPreference( "HideNonShadersInCommon", BoolImportStringCaller( g_TexBro.m_hideNonShadersInCommon ), BoolExportStringCaller( g_TexBro.m_hideNonShadersInCommon ) );
 
 	g_TexBro.m_shader = texdef_name_default();

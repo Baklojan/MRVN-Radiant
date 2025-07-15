@@ -38,6 +38,7 @@
 #include "string/string.h"
 #include "generic/reference.h"
 
+
 inline Nameable* Node_getNameable( scene::Node& node ){
 	return NodeTypeCast<Nameable>::cast( node );
 }

@@ -231,7 +231,7 @@ public:
 		notifyEraseAll();
 		m_observer = 0;
 	}
-/// \brief \copydoc scene::Traversable::insert()
+	/// \brief \copydoc scene::Traversable::insert()
 	void insert( scene::Node& node ){
 		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableModelNodeSet::insert: sanity check failed" );
 
@@ -243,7 +243,7 @@ public:
 			m_observer->insert( node );
 		}
 	}
-/// \brief \copydoc scene::Traversable::erase()
+	/// \brief \copydoc scene::Traversable::erase()
 	void erase( scene::Node& node ){
 		ASSERT_MESSAGE( (volatile intptr_t)&node != 0, "TraversableModelNodeSet::erase: sanity check failed" );
 
@@ -255,7 +255,7 @@ public:
 
 		m_children.erase( NodeSmartReference( node ) );
 	}
-/// \brief \copydoc scene::Traversable::traverse()
+	/// \brief \copydoc scene::Traversable::traverse()
 	void traverse( const Walker& walker ){
 		UnsortedNodeSet::iterator i = m_children.begin();
 		while ( i != m_children.end() )
@@ -266,7 +266,7 @@ public:
 			// this container without invalidating the iterator
 		}
 	}
-/// \brief \copydoc scene::Traversable::empty()
+	/// \brief \copydoc scene::Traversable::empty()
 	bool empty() const {
 		return m_children.empty();
 	}
@@ -540,6 +540,7 @@ public:
 	}
 
 	const int m_MSAA = 8;
+	Vector3 m_background_color = Vector3( .25f );
 
 	QWidget* m_parent = nullptr;
 	QOpenGLWidget* m_gl_widget = nullptr;
@@ -766,7 +767,9 @@ void ModelBrowser_render(){
 	gl().glDepthMask( GL_TRUE );
 	gl().glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 
-	gl().glClearColor( .25f, .25f, .25f, 0 );
+	gl().glClearColor( g_ModelBrowser.m_background_color[0],
+	                   g_ModelBrowser.m_background_color[1],
+	                   g_ModelBrowser.m_background_color[2], 0 );
 	gl().glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	const unsigned int globalstate = RENDER_DEPTHTEST
@@ -857,7 +860,9 @@ void ModelBrowser_render(){
 		}
 
 		{	// brighter background squares
-			gl().glColor4f( 0.3f, 0.3f, 0.3f, 1.f );
+			gl().glColor4f( g_ModelBrowser.m_background_color[0] + .05f,
+			                g_ModelBrowser.m_background_color[1] + .05f,
+			                g_ModelBrowser.m_background_color[2] + .05f, 1.f );
 			gl().glDepthMask( GL_FALSE );
 			gl().glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 			gl().glDisable( GL_CULL_FACE );
@@ -1008,10 +1013,10 @@ protected:
 		if ( m_modBro.m_currentFolder != nullptr && m_modBro.m_currentModelId >= 0 ) {
 			UndoableCommand undo( "insertModel" );
 			// todo
-			// GlobalEntityClassManager() search for "prop_static"
+			// GlobalEntityClassManager() search for "misc_model"
 			// otherwise search for entityClass->miscmodel_is
-			// otherwise go with GlobalEntityClassManager().findOrInsert( "prop_static", false );
-			EntityClass* entityClass = GlobalEntityClassManager().findOrInsert( "prop_static", false );
+			// otherwise go with GlobalEntityClassManager().findOrInsert( "misc_model", false );
+			EntityClass* entityClass = GlobalEntityClassManager().findOrInsert( "misc_model", false );
 			NodeSmartReference node( GlobalEntityCreator().createEntity( entityClass ) );
 
 			Node_getTraversable( GlobalSceneGraph().root() )->insert( node );
@@ -1179,20 +1184,19 @@ public:
 };
 
 
-typedef std::set<CopiedString, bool(*)( const CopiedString&, const CopiedString& )> StringSetWithLambda;
+using StringSetNoCase = std::set<CopiedString, StringLessNoCase>;
 
 class ModelPaths_ArchiveVisitor : public Archive::Visitor
 {
-	const StringSetWithLambda& m_modelExtensions;
+	const StringSetNoCase& m_modelExtensions;
 	ModelFS& m_modelFS;
 public:
 	const ModelFoldersMap& m_modelFoldersMap;
-	bool m_avoid_pk3dir;
-	ModelPaths_ArchiveVisitor( const StringSetWithLambda& modelExtensions, ModelFS& modelFS, const ModelFoldersMap& modelFoldersMap )
+	ModelPaths_ArchiveVisitor( const StringSetNoCase& modelExtensions, ModelFS& modelFS, const ModelFoldersMap& modelFoldersMap )
 		: m_modelExtensions( modelExtensions ),	m_modelFS( modelFS ), m_modelFoldersMap( modelFoldersMap ){
 	}
 	void visit( const char* name ) override {
-		if( m_modelExtensions.contains( path_get_extension( name ) ) && ( !m_avoid_pk3dir || !string_in_string_nocase( name, ".pk3dir/" ) ) ){
+		if( m_modelExtensions.contains( path_get_extension( name ) ) ){
 			m_modelFS.insert( name );
 //%			globalOutputStream() << name << " name\n";
 		}
@@ -1204,11 +1208,6 @@ void ModelPaths_addFromArchive( ModelPaths_ArchiveVisitor& visitor, const char *
 	Archive *archive = GlobalFileSystem().getArchive( archiveName, false );
 	if ( archive != nullptr ) {
 		for( const auto& folder : visitor.m_modelFoldersMap ){
-			/* should better avoid .pk3dir traversal right in archive implementation for normal folders */
-			visitor.m_avoid_pk3dir = string_empty( folder.first.c_str() ) // root
-			                      && folder.second > 1 // deep nuff
-			                      && string_equal_suffix( archiveName, "/" ) // normal folder, not archive
-			                      && !string_equal_suffix_nocase( archiveName, ".pk3dir/" ); // not .pk3dir
 			archive->forEachFile( Archive::VisitorFunc( visitor, Archive::eFiles, folder.second ), folder.first.c_str() );
 		}
 	}
@@ -1224,9 +1223,7 @@ void ModelBrowser_constructTree(){
 	class : public IFileTypeList
 	{
 	public:
-		StringSetWithLambda m_modelExtensions{ []( const CopiedString& lhs, const CopiedString& rhs )->bool{
-			return string_less_nocase( lhs.c_str(), rhs.c_str() );
-		} };
+		StringSetNoCase m_modelExtensions;
 		void addType( const char* moduleName, filetype_t type ) override {
 			m_modelExtensions.emplace( moduleName );
 		}
@@ -1296,7 +1293,7 @@ QWidget* ModelBrowser_constructWindow( QWidget* toplevel ){
 		g_ModelBrowser.m_treeView->setUniformRowHeights( true ); // optimization
 		g_ModelBrowser.m_treeView->setFocusPolicy( Qt::FocusPolicy::ClickFocus );
 		g_ModelBrowser.m_treeView->setExpandsOnDoubleClick( false );
-		g_ModelBrowser.m_treeView->header()->setStretchLastSection( false ); // non greedy column sizing; + QHeaderView::ResizeMode::ResizeToContents = no text elision
+		g_ModelBrowser.m_treeView->header()->setStretchLastSection( false ); // non greedy column sizing; + QHeaderView::ResizeMode::ResizeToContents = no text elision 🤷‍♀️
 		g_ModelBrowser.m_treeView->header()->setSectionResizeMode( QHeaderView::ResizeMode::ResizeToContents );
 
 
@@ -1327,6 +1324,16 @@ QWidget* ModelBrowser_constructWindow( QWidget* toplevel ){
 
 void ModelBrowser_destroyWindow(){
 	g_ModelBrowser.m_gl_widget = nullptr;
+}
+
+
+const Vector3& ModelBrowser_getBackgroundColour(){
+	return g_ModelBrowser.m_background_color;
+}
+
+void ModelBrowser_setBackgroundColour( const Vector3& colour ){
+	g_ModelBrowser.m_background_color = colour;
+	g_ModelBrowser.queueDraw();
 }
 
 
@@ -1369,6 +1376,7 @@ void ModelBrowser_registerPreferencesPage(){
 void ModelBrowser_Construct(){
 	GlobalPreferenceSystem().registerPreference( "ModelBrowserFolders", CopiedStringImportStringCaller( g_ModelBrowser.m_prefFoldersToLoad ), CopiedStringExportStringCaller( g_ModelBrowser.m_prefFoldersToLoad ) );
 	GlobalPreferenceSystem().registerPreference( "ModelBrowserCellSize", IntImportStringCaller( g_ModelBrowser.m_cellSize ), IntExportStringCaller( g_ModelBrowser.m_cellSize ) );
+	GlobalPreferenceSystem().registerPreference( "ColorModBroBackground", Vector3ImportStringCaller( g_ModelBrowser.m_background_color ), Vector3ExportStringCaller( g_ModelBrowser.m_background_color ) );
 
 	ModelBrowser_registerPreferencesPage();
 

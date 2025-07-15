@@ -82,7 +82,7 @@ struct xywindow_globals_private_t
 
 	// these are in the View > Show menu with Show coordinates
 	bool show_names = false;
-	bool show_coordinates = false;
+	bool show_coordinates = true;
 	bool show_angles = true;
 	bool show_outline = true;
 	bool show_axis = true;
@@ -298,7 +298,7 @@ void XYWnd::ChaseMouse(){
 	g_chasemouse_timer.start();
 	Scroll( float_to_integer( multiplier * m_chasemouse_delta_x ), float_to_integer( multiplier * -m_chasemouse_delta_y ) );
 	//globalOutputStream() << "chasemouse: multiplier=" << multiplier << " x=" << m_chasemouse_delta_x << " y=" << m_chasemouse_delta_y << '\n';
-	
+
 	XY_MouseMoved( m_chasemouse_current_x, m_chasemouse_current_y, getButtonState() );
 }
 
@@ -380,11 +380,11 @@ void XYWnd::overlayDraw(){
 		gl().glLoadIdentity();
 
 		// four view mode doesn't colorize
-		gl().glColor3fv( vector3_to_array( ( g_pParentWnd->CurrentStyle() == MainFrame::eSplit )?
-		                                g_xywindow_globals.color_viewname
-		                              : m_viewType == YZ? g_xywindow_globals.AxisColorX
-		                              : m_viewType == XZ? g_xywindow_globals.AxisColorY
-		                              : g_xywindow_globals.AxisColorZ ) );
+		( g_pParentWnd->CurrentStyle() == MainFrame::eSplit )
+			? gl().glColor3fv( vector3_to_array( g_xywindow_globals.color_viewname ) )
+			: gl().glColor3ubv( m_viewType == YZ? &g_colour_x.r
+			                  : m_viewType == XZ? &g_colour_y.r
+			                  :                   &g_colour_z.r );
 		gl().glBegin( GL_LINE_LOOP );
 		gl().glVertex2f( 0.5, 0.5 );
 		gl().glVertex2f( m_nWidth - 0.5, 0.5 );
@@ -1247,8 +1247,8 @@ void XYWnd::XY_DrawAxis(){
 	const float w = ( m_nWidth / 2 / m_fScale );
 	const float h = ( m_nHeight / 2 / m_fScale );
 
-	Vector3 colourX = ( m_viewType == YZ ) ? g_xywindow_globals.AxisColorY : g_xywindow_globals.AxisColorX;
-	Vector3 colourY = ( m_viewType == XY ) ? g_xywindow_globals.AxisColorY : g_xywindow_globals.AxisColorZ;
+	const Colour4b colourX = ( m_viewType == YZ ) ? g_colour_y : g_colour_x;
+	const Colour4b colourY = ( m_viewType == XY ) ? g_colour_y : g_colour_z;
 #if 0 //gray for nonActive
 	if( !Active() ){
 		float grayX = vector3_dot( colourX, Vector3( 0.2989, 0.5870, 0.1140 ) );
@@ -1261,12 +1261,12 @@ void XYWnd::XY_DrawAxis(){
 	// horizontal line: nDim1 color
 	gl().glLineWidth( 2 );
 	gl().glBegin( GL_LINES );
-	gl().glColor3fv( vector3_to_array( colourX ) );
+	gl().glColor3ubv( &colourX.r );
 	gl().glVertex2f( m_vOrigin[nDim1] - w + 40 / m_fScale, m_vOrigin[nDim2] + h - 45 / m_fScale );
 	gl().glVertex2f( m_vOrigin[nDim1] - w + 65 / m_fScale, m_vOrigin[nDim2] + h - 45 / m_fScale );
 	gl().glVertex2f( 0, 0 );
 	gl().glVertex2f( 32 / m_fScale, 0 );
-	gl().glColor3fv( vector3_to_array( colourY ) );
+	gl().glColor3ubv( &colourY.r );
 	gl().glVertex2f( m_vOrigin[nDim1] - w + 40 / m_fScale, m_vOrigin[nDim2] + h - 45 / m_fScale );
 	gl().glVertex2f( m_vOrigin[nDim1] - w + 40 / m_fScale, m_vOrigin[nDim2] + h - 20 / m_fScale );
 	gl().glVertex2f( 0, 0 );
@@ -1276,12 +1276,12 @@ void XYWnd::XY_DrawAxis(){
 	// now print axis symbols
 	const int fontHeight = GlobalOpenGL().m_font->getPixelHeight();
 	const float fontWidth = fontHeight * .55f;
-	gl().glColor3fv( vector3_to_array( colourX ) );
+	gl().glColor3ubv( &colourX.r );
 	gl().glRasterPos2f( m_vOrigin[nDim1] - w + ( 65 - 3 - fontWidth ) / m_fScale, m_vOrigin[nDim2] + h - ( 45 + 3 + fontHeight ) / m_fScale );
 	GlobalOpenGL().drawChar( g_AxisName[nDim1] );
 	gl().glRasterPos2f( ( 32 - fontWidth / 2 ) / m_fScale, -( 0 + 3 + fontHeight ) / m_fScale );
 	GlobalOpenGL().drawChar( g_AxisName[nDim1] );
-	gl().glColor3fv( vector3_to_array( colourY ) );
+	gl().glColor3ubv( &colourY.r );
 	gl().glRasterPos2f( m_vOrigin[nDim1] - w + ( 40 - 4 - fontWidth ) / m_fScale, m_vOrigin[nDim2] + h - ( 20 + 3 + fontHeight ) / m_fScale );
 	GlobalOpenGL().drawChar( g_AxisName[nDim2] );
 	gl().glRasterPos2f( ( 0 - 3 - fontWidth ) / m_fScale, ( 32 - fontHeight / 2 ) / m_fScale );
@@ -1578,7 +1578,7 @@ void XYWnd::DrawCameraIcon( const Vector3& origin, const Vector3& angles ){
 	                 degrees_to_radians( ( angles[CAMERA_YAW] > 180 ) ? ( 180.0f - angles[CAMERA_PITCH] ) : angles[CAMERA_PITCH] )
 	                 : degrees_to_radians( ( angles[CAMERA_YAW] < 270 && angles[CAMERA_YAW] > 90 ) ? ( 180.0f - angles[CAMERA_PITCH] ) : angles[CAMERA_PITCH] );
 
-	gl().glColor3f( 0.0, 0.0, 1.0 );
+	gl().glColor3fv( vector3_to_array( g_xywindow_globals.color_camera ) );
 	gl().glBegin( GL_LINE_STRIP );
 	gl().glVertex3f( x - box, y              , 0 );
 	gl().glVertex3f( x      , y + ( box / 2 ), 0 );
@@ -1593,7 +1593,6 @@ void XYWnd::DrawCameraIcon( const Vector3& origin, const Vector3& angles ){
 	gl().glVertex3f( x, y, 0 );
 	gl().glVertex3f( x + static_cast<float>( fov * cos( a - c_pi / 4 ) ), y + static_cast<float>( fov * sin( a - c_pi / 4 ) ), 0 );
 	gl().glEnd();
-
 }
 
 
@@ -1804,14 +1803,15 @@ void XYWnd::updateModelview(){
 
 void XYWnd::XY_Draw(){
 //		globalOutputStream() << "XY_Draw()\n";
+	/* workaround poorly visible white lights on bright background */
+	GlobalEntityCreator().setLightColorize( vector3_min_component( g_xywindow_globals.color_gridback ) < .9f );
 	//
 	// clear
 	//
 	gl().glViewport( 0, 0, m_nWidth, m_nHeight );
 	gl().glClearColor( g_xywindow_globals.color_gridback[0],
-	              g_xywindow_globals.color_gridback[1],
-	              g_xywindow_globals.color_gridback[2], 0 );
-
+	                   g_xywindow_globals.color_gridback[1],
+	                   g_xywindow_globals.color_gridback[2], 0 );
 	gl().glClear( GL_COLOR_BUFFER_BIT );
 
 	extern void Renderer_ResetStats();
@@ -2212,6 +2212,20 @@ void MSAAExport( const IntImportCallback& importer ){
 typedef FreeCaller<void(const IntImportCallback&), MSAAExport> MSAAExportCaller;
 
 
+inline void Colour4b_importString( Colour4b& self, const char* string ){
+	if ( 4 != sscanf( string, "%hhu %hhu %hhu %hhu", &self.r, &self.g, &self.b, &self.a ) ) {
+		self = Colour4b( 0, 0, 0, 255 );
+	}
+}
+typedef ReferenceCaller<Colour4b, void(const char*), Colour4b_importString> Colour4bImportStringCaller;
+inline void Colour4b_exportString( const Colour4b& self, const StringImportCallback& importer ){
+	char buffer[64];
+	sprintf( buffer, "%hhu %hhu %hhu %hhu", self.r, self.g, self.b, self.a );
+	importer( buffer );
+}
+typedef ConstReferenceCaller<Colour4b, void(const StringImportCallback&), Colour4b_exportString> Colour4bExportStringCaller;
+
+
 void XYShow_registerCommands(){
 	GlobalToggles_insert( "ShowSize2d", makeCallbackF( ToggleShowSizeInfo ), ToggleItem::AddCallbackCaller( g_show_size_item ), QKeySequence( "J" ) );
 	GlobalToggles_insert( "ToggleCrosshairs", makeCallbackF( ToggleShowCrosshair ), ToggleItem::AddCallbackCaller( g_show_crosshair_item ), QKeySequence( "Shift+X" ) );
@@ -2290,18 +2304,19 @@ void XYWindow_Construct(){
 	GlobalPreferenceSystem().registerPreference( "SI_ShowAxis", BoolImportStringCaller( g_xywindow_globals_private.show_axis ), BoolExportStringCaller( g_xywindow_globals_private.show_axis ) );
 	GlobalPreferenceSystem().registerPreference( "ShowWorkzone2d", BoolImportStringCaller( g_xywindow_globals_private.show_workzone ), BoolExportStringCaller( g_xywindow_globals_private.show_workzone ) );
 
-	GlobalPreferenceSystem().registerPreference( "SI_AxisColors0", Vector3ImportStringCaller( g_xywindow_globals.AxisColorX ), Vector3ExportStringCaller( g_xywindow_globals.AxisColorX ) );
-	GlobalPreferenceSystem().registerPreference( "SI_AxisColors1", Vector3ImportStringCaller( g_xywindow_globals.AxisColorY ), Vector3ExportStringCaller( g_xywindow_globals.AxisColorY ) );
-	GlobalPreferenceSystem().registerPreference( "SI_AxisColors2", Vector3ImportStringCaller( g_xywindow_globals.AxisColorZ ), Vector3ExportStringCaller( g_xywindow_globals.AxisColorZ ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors1", Vector3ImportStringCaller( g_xywindow_globals.color_gridback ), Vector3ExportStringCaller( g_xywindow_globals.color_gridback ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors2", Vector3ImportStringCaller( g_xywindow_globals.color_gridminor ), Vector3ExportStringCaller( g_xywindow_globals.color_gridminor ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors3", Vector3ImportStringCaller( g_xywindow_globals.color_gridmajor ), Vector3ExportStringCaller( g_xywindow_globals.color_gridmajor ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors6", Vector3ImportStringCaller( g_xywindow_globals.color_gridblock ), Vector3ExportStringCaller( g_xywindow_globals.color_gridblock ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors7", Vector3ImportStringCaller( g_xywindow_globals.color_gridtext ), Vector3ExportStringCaller( g_xywindow_globals.color_gridtext ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors8", Vector3ImportStringCaller( g_xywindow_globals.color_brushes ), Vector3ExportStringCaller( g_xywindow_globals.color_brushes ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors9", Vector3ImportStringCaller( g_xywindow_globals.color_viewname ), Vector3ExportStringCaller( g_xywindow_globals.color_viewname ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors10", Vector3ImportStringCaller( g_xywindow_globals.color_clipper ), Vector3ExportStringCaller( g_xywindow_globals.color_clipper ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors11", Vector3ImportStringCaller( g_xywindow_globals.color_selbrushes ), Vector3ExportStringCaller( g_xywindow_globals.color_selbrushes ) );
+	GlobalPreferenceSystem().registerPreference( "ColorAxisX", Colour4bImportStringCaller( g_colour_x ), Colour4bExportStringCaller( g_colour_x ) );
+	GlobalPreferenceSystem().registerPreference( "ColorAxisY", Colour4bImportStringCaller( g_colour_y ), Colour4bExportStringCaller( g_colour_y ) );
+	GlobalPreferenceSystem().registerPreference( "ColorAxisZ", Colour4bImportStringCaller( g_colour_z ), Colour4bExportStringCaller( g_colour_z ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridBackground", Vector3ImportStringCaller( g_xywindow_globals.color_gridback ), Vector3ExportStringCaller( g_xywindow_globals.color_gridback ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridMinor", Vector3ImportStringCaller( g_xywindow_globals.color_gridminor ), Vector3ExportStringCaller( g_xywindow_globals.color_gridminor ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridMajor", Vector3ImportStringCaller( g_xywindow_globals.color_gridmajor ), Vector3ExportStringCaller( g_xywindow_globals.color_gridmajor ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridBlocks", Vector3ImportStringCaller( g_xywindow_globals.color_gridblock ), Vector3ExportStringCaller( g_xywindow_globals.color_gridblock ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridText", Vector3ImportStringCaller( g_xywindow_globals.color_gridtext ), Vector3ExportStringCaller( g_xywindow_globals.color_gridtext ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridWorldspawn", Vector3ImportStringCaller( g_xywindow_globals.color_brushes ), Vector3ExportStringCaller( g_xywindow_globals.color_brushes ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridActive", Vector3ImportStringCaller( g_xywindow_globals.color_viewname ), Vector3ExportStringCaller( g_xywindow_globals.color_viewname ) );
+	GlobalPreferenceSystem().registerPreference( "ColorClipperSplit", Vector3ImportStringCaller( g_xywindow_globals.color_clipper ), Vector3ExportStringCaller( g_xywindow_globals.color_clipper ) );
+	GlobalPreferenceSystem().registerPreference( "ColorGridSelection", Vector3ImportStringCaller( g_xywindow_globals.color_selbrushes ), Vector3ExportStringCaller( g_xywindow_globals.color_selbrushes ) );
+	GlobalPreferenceSystem().registerPreference( "ColorCameraIcon", Vector3ImportStringCaller( g_xywindow_globals.color_camera ), Vector3ExportStringCaller( g_xywindow_globals.color_camera ) );
 
 
 	GlobalPreferenceSystem().registerPreference( "XYVIS", makeBoolStringImportCallback( ToggleShownImportBoolCaller( g_xy_top_shown ) ), makeBoolStringExportCallback( ToggleShownExportBoolCaller( g_xy_top_shown ) ) );

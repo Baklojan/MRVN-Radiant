@@ -64,8 +64,8 @@ EntityClass* EntityClassFGD_insertUniqueBase( EntityClass* entityClass ){
 	std::pair<BaseClasses::iterator, bool> result = g_EntityClassFGD_bases.insert( BaseClasses::value_type( entityClass->name(), entityClass ) );
 	if ( !result.second ) {
 		globalErrorStream() << "duplicate base class: " << makeQuoted( entityClass->name() ) << '\n';
-		//eclass_capture_state(entityClass);
-		//entityClass->free(entityClass);
+		//eclass_capture_state( entityClass );
+		//entityClass->free( entityClass );
 	}
 	return ( *result.first ).second;
 }
@@ -415,7 +415,7 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 			ASSERT_MESSAGE( EntityClassFGD_parseToken( tokeniser, "[" ), PARSE_ERROR );
 			tokeniser.nextLine();
 
-			const auto listTypeName = StringStream<64>( entityClass->name(), '_', attribute.m_name );
+			const auto listTypeName = StringStream<64>( entityClass->name(), '_', key );
 			attribute.m_type = listTypeName;
 
 			ListAttributeType& listType = g_listTypesFGD[listTypeName.c_str()];
@@ -462,6 +462,7 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 		       || string_equal_nocase( type.c_str(), "studio" )
 		       || string_equal_nocase( type.c_str(), "sprite" )
 		       || string_equal_nocase( type.c_str(), "color255" )
+		       || string_equal_nocase( type.c_str(), "color1" )
 		       || string_equal_nocase( type.c_str(), "target_source" )
 		       || string_equal_nocase( type.c_str(), "target_destination" )
 		       || string_equal_nocase( type.c_str(), "sound" )
@@ -488,6 +489,9 @@ void EntityClassFGD_parseClass( Tokeniser& tokeniser, bool fixedsize, bool isBas
 			const char* attributeType = "string";
 			if ( string_equal_nocase( type.c_str(), "studio" ) ) {
 				attributeType = "model";
+			}
+			else if ( string_equal_nocase( type.c_str(), "color1" ) ) {
+				attributeType = "color";
 			}
 
 			EntityClassAttribute attribute;
@@ -606,7 +610,7 @@ EntityClass* EntityClassFGD_findOrInsert( const char *name, bool has_brushes ){
 
 	EntityClasses::iterator i = g_EntityClassFGD_classes.find( name );
 	if ( i != g_EntityClassFGD_classes.end()
-	     //&& string_equal((*i).first, name)
+	     //&& string_equal( ( *i ).first, name )
 	   ) {
 		return ( *i ).second;
 	}
@@ -655,7 +659,7 @@ void EntityClassFGD_resolveInheritance( EntityClass* derivedClass ){
 
 				for( size_t flag = 0; flag < MAX_FLAGS; ++flag ){
 					if( !string_empty( parentClass->flagnames[flag] ) && string_empty( derivedClass->flagnames[flag] ) ){
-						strncpy( derivedClass->flagnames[flag], parentClass->flagnames[flag], std::size( derivedClass->flagnames[flag] ) - 1  );
+						strncpy( derivedClass->flagnames[flag], parentClass->flagnames[flag], std::size( derivedClass->flagnames[flag] ) - 1 );
 						derivedClass->flagAttributes[flag] = parentClass->flagAttributes[flag];
 					}
 				}

@@ -108,6 +108,7 @@
 #include "qe3.h"
 #include "qgl.h"
 #include "select.h"
+#include "selection.h"
 #include "server.h"
 #include "surfacedialog.h"
 #include "textures.h"
@@ -704,8 +705,7 @@ void OpenHelpURL(){
 
 void OpenBugReportURL(){
 	// OpenURL( "http://www.icculus.org/netradiant/?cmd=bugs" );
-	// OpenURL( "https://github.com/Garux/netradiant-custom/issues" );
-	OpenURL( "https://github.com/MRVN-Radiant/MRVN-Radiant/issues" );
+	OpenURL( "https://github.com/Garux/netradiant-custom/issues" );
 }
 
 
@@ -927,7 +927,7 @@ void create_edit_menu( QMenuBar *menubar ){
 	create_menu_item_with_mnemonic( menu, "Select Connected Entities", "SelectConnectedEntities" );
 
 	menu->addSeparator();
-	create_menu_item_with_mnemonic( menu, "&Shortcuts...", makeCallbackF( DoCommandListDlg ) );
+	create_menu_item_with_mnemonic( menu, "&Shortcuts...", "Shortcuts" );
 	create_menu_item_with_mnemonic( menu, "Pre&ferences...", "Preferences" );
 }
 
@@ -1071,6 +1071,9 @@ void create_selection_menu( QMenuBar *menubar ){
 	}
 
 	menu->addSeparator();
+	create_menu_item_with_mnemonic( menu, "Snap To Grid", "SnapToGrid" );
+
+	menu->addSeparator();
 
 	{
 		QMenu* submenu = menu->addMenu( "Nudge" );
@@ -1112,7 +1115,26 @@ void create_selection_menu( QMenuBar *menubar ){
 	menu->addSeparator();
 	create_menu_item_with_mnemonic( menu, "Arbitrary rotation...", "ArbitraryRotation" );
 	create_menu_item_with_mnemonic( menu, "Arbitrary scale...", "ArbitraryScale" );
-	create_menu_item_with_mnemonic( menu, "Repeat Transforms", "RepeatTransforms" );
+	menu->addSeparator();
+	{
+		QMenu* submenu = menu->addMenu( "Repeat" );
+
+		submenu->setTearOffEnabled( g_Layout_enableDetachableMenus.m_value );
+
+		create_menu_item_with_mnemonic( submenu, "Repeat Transforms", "RepeatTransforms" );
+
+		using SetTextCB = PointerCaller<QAction, void(const char*), +[]( QAction *action, const char *text ){ action->setText( text ); }>;
+		const auto addItem = [submenu]<SelectionSystem::EManipulatorMode mode>() -> SetTextCB {
+			return SetTextCB( create_menu_item_with_mnemonic( submenu, "", makeCallbackF( +[](){ GlobalSelectionSystem().resetTransforms( mode ); } ) ) );
+		};
+		SelectionSystem_connectTransformsCallbacks( { addItem.operator()<SelectionSystem::eTranslate>(),
+		                                              addItem.operator()<SelectionSystem::eRotate>(),
+		                                              addItem.operator()<SelectionSystem::eScale>(),
+		                                              addItem.operator()<SelectionSystem::eSkew>() } );
+		GlobalSelectionSystem().resetTransforms(); // init texts immediately
+
+		create_menu_item_with_mnemonic( submenu, "Reset Transforms", "ResetTransforms" );
+	}
 }
 
 void create_bsp_menu( QMenuBar *menubar ){
@@ -1169,7 +1191,7 @@ void create_entity_menu( QMenuBar *menubar ){
 
 void create_brush_menu( QMenuBar *menubar ){
 	// Brush menu
-	QMenu *menu = menubar->addMenu( "B&rush" );
+	QMenu *menu = menubar->addMenu( "Brush" );
 
 	menu->setTearOffEnabled( g_Layout_enableDetachableMenus.m_value );
 
@@ -1198,7 +1220,7 @@ void create_help_menu( QMenuBar *menubar ){
 	create_game_help_menu( menu );
 
 	create_menu_item_with_mnemonic( menu, "Bug report", makeCallbackF( OpenBugReportURL ) );
-	//create_menu_item_with_mnemonic( menu, "Check for NetRadiant update", "CheckForUpdate" ); // FIXME
+	create_menu_item_with_mnemonic( menu, "Check for NetRadiant update", "CheckForUpdate" ); // FIXME
 	create_menu_item_with_mnemonic( menu, "&About", makeCallbackF( DoAbout ) );
 }
 
@@ -1333,7 +1355,6 @@ void Select_constructToolbar( QToolBar* toolbar ){
 
 void CSG_constructToolbar( QToolBar* toolbar ){
 	toolbar_append_button( toolbar, "CSG Subtract", "selection_csgsubtract.png", "CSGSubtract" );
-	toolbar_append_button( toolbar, "CSG Intersect", "selection_csgintersect.png", "CSGIntersect" );
 	toolbar_append_button( toolbar, "CSG Wrap Merge", "selection_csgmerge.png", "CSGWrapMerge" );
 	toolbar_append_button( toolbar, "Room", "selection_makeroom.png", "CSGroom" );
 	toolbar_append_button( toolbar, "CSG Tool", "ellipsis.png", "CSGTool" );
@@ -1390,7 +1411,7 @@ void create_main_toolbar( QToolBar *toolbar,  MainFrame::EViewStyle style ){
 	Manipulators_constructToolbar( toolbar );
 	toolbar->addSeparator();
 
-	if ( !string_empty( g_pGameDescription->getKeyValue( "no_patch" ) ) ) {
+	if ( !string_equal( g_pGameDescription->getKeyValue( "no_patch" ), "1" ) ) {
 		Patch_constructToolbar( toolbar );
 		toolbar->addSeparator();
 	}
@@ -1409,7 +1430,7 @@ void create_main_toolbar( QToolBar *toolbar,  MainFrame::EViewStyle style ){
 	}
 
 	// TODO: call light inspector
-	//QAction* g_view_lightinspector_button = toolbar_append_button(toolbar, "Light Inspector", "lightinspector.png", "ToggleLightInspector");
+	//QAction* g_view_lightinspector_button = toolbar_append_button( toolbar, "Light Inspector", "lightinspector.png", "ToggleLightInspector" );
 
 	toolbar->addSeparator();
 	toolbar_append_button( toolbar, "Refresh Models", "refresh_models.png", "RefreshReferences" );
@@ -2028,6 +2049,7 @@ void MainFrame_Construct(){
 	GlobalCommands_insert( "CheckForUpdate", makeCallbackF( OpenUpdateURL ) );
 	GlobalCommands_insert( "Exit", makeCallbackF( Exit ) );
 
+	GlobalCommands_insert( "Shortcuts", makeCallbackF( DoCommandListDlg ), QKeySequence( "Ctrl+Shift+P" ) );
 	GlobalCommands_insert( "Preferences", makeCallbackF( PreferencesDialog_showDialog ), QKeySequence( "P" ) );
 
 	GlobalCommands_insert( "ToggleConsole", makeCallbackF( Console_ToggleShow ), QKeySequence( "O" ) );
@@ -2083,19 +2105,6 @@ void MainFrame_Construct(){
 #endif
 		    ;
 		g_strEnginePath = StringStream( DirectoryCleaned( g_pGameDescription->getRequiredKeyValue( ENGINEPATH_ATTRIBUTE ) ) );
-	}
-
-	// Check if EnginePath starts with ${HOME} and make it relative to the real home dir
-	if( string_equal_prefix( g_strEnginePath.c_str(), "${HOME}" ) ) {
-		auto strippedPath = StringOutputStream(1028);
-
-		CopiedString home = g_get_home_dir();
-		if( strlen(home.c_str()) == 0 )
-			globalErrorStream() << "Failed to find home directory, please verify that the resources path exists to prevent errors.";
-
-
-		strippedPath << home << StringRange( &g_strEnginePath.c_str()[7], &g_strEnginePath.c_str()[strlen( g_strEnginePath.c_str() )] );
-		g_strEnginePath = strippedPath.c_str();
 	}
 
 

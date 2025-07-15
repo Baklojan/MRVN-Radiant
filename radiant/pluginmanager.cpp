@@ -42,7 +42,6 @@
 #include "commands.h"
 
 #include <list>
-#include <memory>
 
 /* plugin manager --------------------------------------- */
 class CPluginSlot : public IPlugIn
@@ -106,10 +105,11 @@ CPluginSlot::CPluginSlot( QWidget* main_window, const char* name, const _QERPlug
 			m_CommandTitleStrings.push_back( titleToken );
 
 		m_callbacks.emplace_back( PluginCaller( this, m_CommandStrings.back().c_str() ) );
-		StringOutputStream str( 64 );
+		StringBuffer str( 64 );
 		{
-			if( !string_equal_nocase_n( cmdToken, getMenuName(), string_length( getMenuName() ) ) ){ //plugin name is not part of command name
-				str << getMenuName() << "::";
+			if( !string_equal_prefix_nocase( cmdToken, getMenuName() ) ){ //plugin name is not part of command name
+				str.push_string( getMenuName() );
+				str.push_string( "::" );
 			}
 			/* remove spaces + camelcasify */
 			const char* p = cmdToken;
@@ -120,20 +120,18 @@ CPluginSlot::CPluginSlot( QWidget* main_window, const char* name, const _QERPlug
 				}
 				else if( wasspace ){
 					wasspace = false;
-					str << static_cast<char>( std::toupper( *p ) );
+					str.push_back( std::toupper( *p ) );
 				}
 				else{
-					str << *p;
+					str.push_back( *p );
 				}
 				++p;
 			}
 			/* del trailing periods */
-			char* pp = &( *( str.end() - 1 ) );
-			while( *pp == '.' ){
-				*pp = '\0';
-				--pp;
+			while( !str.empty() && str.back() == '.' ){
+				str.pop_back();
 			}
-			*str.c_str() = std::tolower( *str.c_str() ); //put to the end of the list this way
+			*str.c_str() = std::tolower( *str.c_str() ); //put to the end of the list this way //not in Qt 🤔
 		}
 		m_globalCommandNames.emplace_back( str.c_str() );
 		if ( !plugin_menu_special( cmdToken ) ) //ain't special
@@ -208,21 +206,22 @@ void CPluginSlots::PopulateMenu( PluginsVisitor& menu ){
 	}
 }
 
-std::shared_ptr<CPluginSlots> g_pPluginSlots = std::make_shared<CPluginSlots>();
+CPluginSlots g_plugin_slots;
 
-void FillPluginSlots( std::shared_ptr<CPluginSlots> pSlots, QWidget* pMainWindow ) {
-	class AddPluginVisitor : public PluginModules::Visitor {
-			std::shared_ptr<CPluginSlots> m_pSlots;
-			QWidget* m_pMainWindow;
-		public:
-			AddPluginVisitor( std::shared_ptr<CPluginSlots> pSlots, QWidget* pMainWindow ) {
-				m_pSlots = pSlots;
-				m_pMainWindow = pMainWindow;
-			}
-			void visit( const char* name, const _QERPluginTable& table ) const {
-				m_pSlots->AddPluginSlot( m_pMainWindow, name, table );
-			}
-	} visitor( pSlots, pMainWindow );
+
+void FillPluginSlots( CPluginSlots& slots, QWidget* main_window ){
+	class AddPluginVisitor : public PluginModules::Visitor
+	{
+		CPluginSlots& m_slots;
+		QWidget* m_main_window;
+	public:
+		AddPluginVisitor( CPluginSlots& slots, QWidget* main_window )
+			: m_slots( slots ), m_main_window( main_window ){
+		}
+		void visit( const char* name, const _QERPluginTable& table ) const {
+			m_slots.AddPluginSlot( m_main_window, name, table );
+		}
+	} visitor( slots, main_window );
 
 	Radiant_getPluginModules().foreachModule( visitor );
 }
@@ -234,12 +233,12 @@ CPlugInManager& GetPlugInMgr(){
 	return g_PlugInMgr;
 }
 
-void CPlugInManager::Init( QWidget* pMainWindow ){
-	FillPluginSlots( g_pPluginSlots, pMainWindow );
+void CPlugInManager::Init( QWidget* main_window ){
+	FillPluginSlots( g_plugin_slots, main_window );
 }
 
 void CPlugInManager::constructMenu( PluginsVisitor& menu ){
-	g_pPluginSlots->PopulateMenu( menu );
+	g_plugin_slots.PopulateMenu( menu );
 }
 
 void CPlugInManager::Shutdown(){

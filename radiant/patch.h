@@ -74,8 +74,8 @@ enum EPatchType
 extern int g_PatchSubdivideThreshold;
 
 
-#define MIN_PATCH_WIDTH 2
-#define MIN_PATCH_HEIGHT 2
+#define MIN_PATCH_WIDTH 3
+#define MIN_PATCH_HEIGHT 3
 
 extern std::size_t MAX_PATCH_WIDTH;
 extern std::size_t MAX_PATCH_HEIGHT;
@@ -211,11 +211,50 @@ public:
 	RenderablePatchWireframe( PatchTesselation& tess ) : m_tess( tess ){
 	}
 	void render( RenderStateFlags state ) const {
-		gl().glVertexPointer( 3, GL_FLOAT, sizeof( ArbitraryMeshVertex ), &m_tess.m_vertices.data()->vertex );
-		const RenderIndex* strip_indices = m_tess.m_indices.data();
-		for ( std::size_t i = 0; i < m_tess.m_numStrips; i++, strip_indices += m_tess.m_lenStrips )
 		{
-			gl().glDrawElements( GL_QUAD_STRIP, GLsizei( m_tess.m_lenStrips ), RenderIndexTypeID, strip_indices );
+#if NV_DRIVER_BUG
+			gl().glVertexPointer( 3, GL_FLOAT, 0, 0 );
+			gl().glDrawArrays( GL_TRIANGLE_FAN, 0, 0 );
+#endif
+
+			std::size_t n = 0;
+			gl().glVertexPointer( 3, GL_FLOAT, sizeof( ArbitraryMeshVertex ), &m_tess.m_vertices.data()->vertex );
+			for ( std::size_t i = 0; i <= m_tess.m_curveTreeV.size(); ++i )
+			{
+				gl().glDrawArrays( GL_LINE_STRIP, GLint( n ), GLsizei( m_tess.m_nArrayWidth ) );
+
+				if ( i == m_tess.m_curveTreeV.size() ) {
+					break;
+				}
+
+				if ( !BezierCurveTree_isLeaf( m_tess.m_curveTreeV[i] ) ) {
+					gl().glDrawArrays( GL_LINE_STRIP, GLint( m_tess.m_curveTreeV[i]->index ), GLsizei( m_tess.m_nArrayWidth ) );
+				}
+
+				n += ( m_tess.m_arrayHeight[i] * m_tess.m_nArrayWidth );
+
+			}
+		}
+
+		{
+			const ArbitraryMeshVertex* p = m_tess.m_vertices.data();
+			std::size_t n = m_tess.m_nArrayWidth * sizeof( ArbitraryMeshVertex );
+			for ( std::size_t i = 0; i <= m_tess.m_curveTreeU.size(); ++i )
+			{
+				gl().glVertexPointer( 3, GL_FLOAT, GLsizei( n ), &p->vertex );
+				gl().glDrawArrays( GL_LINE_STRIP, 0, GLsizei( m_tess.m_nArrayHeight ) );
+
+				if ( i == m_tess.m_curveTreeU.size() ) {
+					break;
+				}
+
+				if ( !BezierCurveTree_isLeaf( m_tess.m_curveTreeU[i] ) ) {
+					gl().glVertexPointer( 3, GL_FLOAT, GLsizei( n ), &( m_tess.m_vertices.data() + ( m_tess.m_curveTreeU[i]->index ) )->vertex );
+					gl().glDrawArrays( GL_LINE_STRIP, 0, GLsizei( m_tess.m_nArrayHeight ) );
+				}
+
+				p += m_tess.m_arrayWidth[i];
+			}
 		}
 	}
 };
@@ -884,8 +923,8 @@ public:
 	void Calculate_AvgAxes( Vector3& wDir, Vector3& hDir ) const;
 	void ProjectTexture( TextureProjection projection, const Vector3& normal );
 	void ProjectTexture( const texdef_t& texdef, const Vector3* direction );
-	void createThickenedOpposite(const Patch& sourcePatch, const float thickness, const int axis, bool& no12, bool& no34 );
-	void createThickenedWall(const Patch& sourcePatch, const Patch& targetPatch, const int wallIndex);
+	void createThickenedOpposite( const Patch& sourcePatch, const float thickness, const int axis, bool& no12, bool& no34 );
+	void createThickenedWall( const Patch& sourcePatch, const Patch& targetPatch, const int wallIndex );
 
 	void undoSave(){
 		if ( m_map != 0 ) {
@@ -1588,27 +1627,27 @@ public:
 	}
 
 
-	void selectPlanes( Selector& selector, SelectionTest& test, const PlaneCallback& selectedPlaneCallback ){
+	void selectPlanes( Selector& selector, SelectionTest& test, const PlaneCallback& selectedPlaneCallback ) override {
 		test.BeginMesh( localToWorld() );
 
 		m_dragPlanes.selectPlanes( m_patch.localAABB(), selector, test, selectedPlaneCallback );
 	}
-	void selectReversedPlanes( Selector& selector, const SelectedPlanes& selectedPlanes ){
+	void selectReversedPlanes( Selector& selector, const SelectedPlanes& selectedPlanes ) override {
 		m_dragPlanes.selectReversedPlanes( m_patch.localAABB(), selector, selectedPlanes );
 	}
 
-	void bestPlaneDirect( SelectionTest& test, Plane3& plane, SelectionIntersection& intersection ) const {
+	void bestPlaneDirect( SelectionTest& test, BestPlaneData& planeData ) const override {
 		test.BeginMesh( localToWorld() );
-		m_dragPlanes.bestPlaneDirect( m_patch.localAABB(), test, plane, intersection );
+		m_dragPlanes.bestPlaneDirect( m_patch.localAABB(), test, planeData );
 	}
-	void bestPlaneIndirect( SelectionTest& test, Plane3& plane, Vector3& intersection, float& dist ) const {
+	void bestPlaneIndirect( SelectionTest& test, BestPlaneData& planeData ) const override {
 		test.BeginMesh( localToWorld() );
-		m_dragPlanes.bestPlaneIndirect( m_patch.localAABB(), test, plane, intersection, dist );
+		m_dragPlanes.bestPlaneIndirect( m_patch.localAABB(), test, planeData );
 	}
-	void selectByPlane( const Plane3& plane ){
+	void selectByPlane( const Plane3& plane ) override {
 		m_dragPlanes.selectByPlane( m_patch.localAABB(), plane );
 	}
-	void gatherPolygonsByPlane( const Plane3& plane, std::vector<std::vector<Vector3>>& polygons ) const {
+	void gatherPolygonsByPlane( const Plane3& plane, std::vector<std::vector<Vector3>>& polygons ) const override {
 		m_dragPlanes.gatherPolygonsByPlane( m_patch.localAABB(), plane, polygons );
 	}
 

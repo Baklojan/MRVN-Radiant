@@ -241,9 +241,8 @@ public:
 			m_removedChild = false;
 
 			// delete empty entities
-			Entity* entity = Node_getEntity( path.top() );
-			if ( entity != 0
-			     && path.top().get_pointer() != Map_FindWorldspawn( g_map )
+			if ( Node_isEntity( path.top() )
+			     && path.top().get_pointer() != Map_FindWorldspawn( g_map ) // direct worldspawn deletion is permitted, so do find it each time
 			     && Node_getTraversable( path.top() )->empty() ) {
 				Path_deleteTop( path );
 			}
@@ -334,11 +333,9 @@ void Select_Invert(){
 //interesting printings
 class ExpandSelectionToEntitiesWalker_dbg : public scene::Graph::Walker
 {
-	mutable std::size_t m_depth;
-	const scene::Node* m_world;
+	mutable std::size_t m_depth = 0;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
-	ExpandSelectionToEntitiesWalker_dbg() : m_depth( 0 ), m_world( Map_FindWorldspawn( g_map ) ){
-	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		++m_depth;
 		globalOutputStream() << "pre depth_" << m_depth;
@@ -385,11 +382,9 @@ public:
 
 class ExpandSelectionToPrimitivesWalker : public scene::Graph::Walker
 {
-	mutable std::size_t m_depth;
-	const scene::Node* m_world;
+	mutable std::size_t m_depth = 0;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
-	ExpandSelectionToPrimitivesWalker() : m_depth( 0 ), m_world( Map_FindWorldspawn( g_map ) ){
-	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		++m_depth;
 
@@ -426,11 +421,9 @@ void Scene_ExpandSelectionToPrimitives(){
 
 class ExpandSelectionToEntitiesWalker : public scene::Graph::Walker
 {
-	mutable std::size_t m_depth;
-	const scene::Node* m_world;
+	mutable std::size_t m_depth = 0;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
-	ExpandSelectionToEntitiesWalker() : m_depth( 0 ), m_world( Map_FindWorldspawn( g_map ) ){
-	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		++m_depth;
 
@@ -731,10 +724,9 @@ template<typename EntityMatcher>
 class EntityFindByPropertyValueWalker : public scene::Graph::Walker
 {
 	const EntityMatcher& m_entityMatcher;
-	const scene::Node* m_world;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
-	EntityFindByPropertyValueWalker( const EntityMatcher& entityMatcher )
-		: m_entityMatcher( entityMatcher ), m_world( Map_FindWorldspawn( g_map ) ){
+	EntityFindByPropertyValueWalker( const EntityMatcher& entityMatcher ) : m_entityMatcher( entityMatcher ){
 	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		if( !path.top().get().visible() ){
@@ -777,14 +769,13 @@ class EntityGetSelectedPropertyValuesWalker : public scene::Graph::Walker
 {
 	PropertyValues& m_propertyvalues;
 	const char *m_prop;
-	const scene::Node* m_world;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
 	EntityGetSelectedPropertyValuesWalker( const char *prop, PropertyValues& propertyvalues )
-		: m_propertyvalues( propertyvalues ), m_prop( prop ), m_world( Map_FindWorldspawn( g_map ) ){
+		: m_propertyvalues( propertyvalues ), m_prop( prop ){
 	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
-		Entity* entity = Node_getEntity( path.top() );
-		if ( entity != 0 ){
+		if ( Entity* entity = Node_getEntity( path.top() ) ){
 			if( path.top().get_pointer() != m_world ){
 				if ( Instance_isSelected( instance ) || instance.childSelected() ) {
 					if ( !propertyvalues_contain( m_propertyvalues, entity->getKeyValue( m_prop ) ) ) {
@@ -950,6 +941,26 @@ void Select_FitTexture( float horizontal, float vertical, bool only_dimension ){
 #include "commands.h"
 #include "dialog.h"
 
+template<class Check>
+bool Traversable_all_of_children( scene::Traversable* traversable, const Check&& check ){
+	class Check_all : public scene::Traversable::Walker
+	{
+		const Check m_check;
+	public:
+		mutable bool m_all = true; // true for empty container
+		Check_all( Check check ) : m_check( check ){
+		}
+		bool pre( scene::Node& node ) const override {
+			if( !m_check( node ) )
+				m_all = false;
+			return m_all;
+		}
+	} check_all( check );
+
+	traversable->traverse( check_all );
+	return check_all.m_all;
+}
+
 inline void hide_node( scene::Node& node, bool hide ){
 	hide
 	? node.enable( scene::Node::eHidden )
@@ -962,17 +973,23 @@ ToggleItem g_hidden_item{ BoolExportCaller( g_nodes_be_hidden ) };
 
 class HideSelectedWalker : public scene::Graph::Walker
 {
-	bool m_hide;
+	const bool m_hide;
 public:
 	HideSelectedWalker( bool hide )
 		: m_hide( hide ){
 	}
-	bool pre( const scene::Path& path, scene::Instance& instance ) const {
+	bool pre( const scene::Path& path, scene::Instance& instance ) const override {
 		if ( Instance_isSelected( instance ) ) {
 			g_nodes_be_hidden = m_hide;
 			hide_node( path.top(), m_hide );
 		}
 		return true;
+	}
+	void post( const scene::Path& path, scene::Instance& instance ) const override {
+		if( m_hide && Node_isEntity( path.top().get() ) ) // hide group entity labels, when their content is entirely hidden
+			if( scene::Traversable* traversable = Node_getTraversable( path.top().get() ) )
+				if( Traversable_all_of_children( traversable, []( const scene::Node& node ){ return node.excluded( scene::Node::eHidden ); } ) )
+					hide_node( path.top(), true );
 	}
 };
 
@@ -982,6 +999,9 @@ void Scene_Hide_Selected( bool hide ){
 
 void Select_Hide(){
 	Scene_Hide_Selected( true );
+	/* not hiding worldspawn node so that newly created brushes are visible */
+	if( scene::Node* w = Map_FindWorldspawn( g_map ) )
+		hide_node( *w, false );
 	SceneChangeNotify();
 }
 
@@ -1235,10 +1255,10 @@ void MoveToCamera(){
 class CloneSelected : public scene::Graph::Walker
 {
 	const bool m_makeUnique;
-	const scene::Node* m_world;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
 	mutable std::vector<scene::Node*> m_cloned;
-	CloneSelected( bool makeUnique ) : m_makeUnique( makeUnique ), m_world( Map_FindWorldspawn( g_map ) ){
+	CloneSelected( bool makeUnique ) : m_makeUnique( makeUnique ){
 	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		if ( path.size() == 1 ) {
@@ -1385,8 +1405,8 @@ void Selection_Clone(){
 		Scene_Clone_Selected( GlobalSceneGraph(), false );
 
 		if( g_bNudgeAfterClone ){
-			NudgeSelection(eNudgeRight, GetGridSize(), GlobalXYWnd_getCurrentViewType());
-			NudgeSelection(eNudgeDown, GetGridSize(), GlobalXYWnd_getCurrentViewType());
+			NudgeSelection( eNudgeRight, GetGridSize(), GlobalXYWnd_getCurrentViewType() );
+			NudgeSelection( eNudgeDown, GetGridSize(), GlobalXYWnd_getCurrentViewType() );
 		}
 	}
 }
@@ -1398,8 +1418,8 @@ void Selection_Clone_MakeUnique(){
 		Scene_Clone_Selected( GlobalSceneGraph(), true );
 
 		if( g_bNudgeAfterClone ){
-			NudgeSelection(eNudgeRight, GetGridSize(), GlobalXYWnd_getCurrentViewType());
-			NudgeSelection(eNudgeDown, GetGridSize(), GlobalXYWnd_getCurrentViewType());
+			NudgeSelection( eNudgeRight, GetGridSize(), GlobalXYWnd_getCurrentViewType() );
+			NudgeSelection( eNudgeDown, GetGridSize(), GlobalXYWnd_getCurrentViewType() );
 		}
 	}
 }
@@ -1430,10 +1450,6 @@ void Selection_Deselect(){
 
 void Scene_Clone_Selected(){
 	Scene_Clone_Selected( GlobalSceneGraph(), false );
-}
-
-void RepeatTransforms(){
-	GlobalSelectionSystem().repeatTransforms( FreeCaller<void(), Scene_Clone_Selected>() );
 }
 
 
@@ -1775,10 +1791,10 @@ class EntityGetSelectedPropertyValuesWalker_nonEmpty : public scene::Graph::Walk
 {
 	PropertyValues& m_propertyvalues;
 	const char *m_prop;
-	const scene::Node* m_world;
+	const scene::Node* m_world = Map_FindWorldspawn( g_map );
 public:
 	EntityGetSelectedPropertyValuesWalker_nonEmpty( const char *prop, PropertyValues& propertyvalues )
-		: m_propertyvalues( propertyvalues ), m_prop( prop ), m_world( Map_FindWorldspawn( g_map ) ){
+		: m_propertyvalues( propertyvalues ), m_prop( prop ){
 	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		Entity* entity = Node_getEntity( path.top() );
@@ -1877,7 +1893,8 @@ void Select_registerCommands(){
 	GlobalCommands_insert( "CloneSelectionAndMakeUnique", makeCallbackF( Selection_Clone_MakeUnique ), QKeySequence( "Shift+Space" ) );
 	GlobalCommands_insert( "DeleteSelection2", makeCallbackF( deleteSelection ), QKeySequence( "Backspace" ) );
 	GlobalCommands_insert( "DeleteSelection", makeCallbackF( deleteSelection ), QKeySequence( "Z" ) );
-	GlobalCommands_insert( "RepeatTransforms", makeCallbackF( RepeatTransforms ), QKeySequence( "Ctrl+R" ) );
+	GlobalCommands_insert( "RepeatTransforms", makeCallbackF( +[](){ GlobalSelectionSystem().repeatTransforms(); } ), QKeySequence( "Ctrl+R" ) );
+	GlobalCommands_insert( "ResetTransforms", makeCallbackF( +[](){ GlobalSelectionSystem().resetTransforms(); } ), QKeySequence( "Alt+R" ) );
 //	GlobalCommands_insert( "ParentSelection", makeCallbackF( Scene_parentSelected ) );
 	GlobalCommands_insert( "UnSelectSelection2", makeCallbackF( Selection_Deselect ), QKeySequence( "Escape" ) );
 	GlobalCommands_insert( "UnSelectSelection", makeCallbackF( Selection_Deselect ), QKeySequence( "C" ) );

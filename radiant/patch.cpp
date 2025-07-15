@@ -231,12 +231,10 @@ void Patch::UpdateCachedData(){
 		return;
 	}
 
-	//BuildTesselationCurves( ROW );
-	//BuildTesselationCurves( COL );
-	
+	BuildTesselationCurves( ROW );
+	BuildTesselationCurves( COL );
 	BuildVertexArray();
 	AccumulateBBox();
-	
 
 	IndexBuffer ctrl_indices;
 
@@ -317,11 +315,7 @@ void Patch::TransposeMatrix(){
 		}
 	}
 
-	{
-		std::size_t tmp = m_width;
-		m_width = m_height;
-		m_height = tmp;
-	}
+	std::swap( m_width, m_height );
 
 	controlPointsChanged();
 }
@@ -499,6 +493,7 @@ void Patch::FlipTexture( int nAxis ){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 void Patch::TranslateTexture( float s, float t ){
@@ -514,6 +509,7 @@ void Patch::TranslateTexture( float s, float t ){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 void Patch::ScaleTexture( float s, float t ){
@@ -526,6 +522,7 @@ void Patch::ScaleTexture( float s, float t ){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 void Patch::RotateTexture( float angle ){
@@ -543,6 +540,7 @@ void Patch::RotateTexture( float angle ){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 
@@ -567,22 +565,23 @@ void Patch::SetTextureRepeat( float s, float t ){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 /*
-   void Patch::SetTextureInfo(texdef_t *pt)
-   {
-   if(pt->getShift()[0] || pt->getShift()[1])
-    TranslateTexture (pt->getShift()[0], pt->getShift()[1]);
-   else if(pt->getScale()[0] || pt->getScale()[1])
-   {
-    if(pt->getScale()[0] == 0.0f) pt->setScale(0, 1.0f);
-    if(pt->getScale()[1] == 0.0f) pt->setScale(1, 1.0f);
-    ScaleTexture (pt->getScale()[0], pt->getScale()[1]);
-   }
-   else if(pt->rotate)
-    RotateTexture (pt->rotate);
-   }
+	void Patch::SetTextureInfo( texdef_t *pt )
+	{
+	if( pt->getShift()[0] || pt->getShift()[1] )
+		TranslateTexture( pt->getShift()[0], pt->getShift()[1] );
+	else if( pt->getScale()[0] || pt->getScale()[1] )
+	{
+		if( pt->getScale()[0] == 0.0f ) pt->setScale( 0, 1.0f );
+		if( pt->getScale()[1] == 0.0f ) pt->setScale( 1, 1.0f );
+		ScaleTexture ( pt->getScale()[0], pt->getScale()[1] );
+	}
+	else if( pt->rotate )
+		RotateTexture( pt->rotate );
+	}
  */
 
 void Patch::Calculate_AvgAxes( Vector3& wDir, Vector3& hDir ) const {
@@ -756,6 +755,7 @@ void Patch::NaturalTexture(){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 
@@ -801,13 +801,13 @@ void Patch::InsertPoints( EMatrixMajor mt, bool bFirst ){
 	{
 		PatchControl* p1 = m_ctrl.data();
 		/*
-		   if(GlobalSelectionSystem().countSelected() != 0)
-		   {
-		      scene::Instance& instance = GlobalSelectionSystem().ultimateSelected();
-		      PatchInstance* patch = Instance_getPatch(instance);
-		      patch->m_selectable.isSelected();
-		   }
-		 */
+			if( GlobalSelectionSystem().countSelected() != 0 )
+			{
+				scene::Instance& instance = GlobalSelectionSystem().ultimateSelected();
+				PatchInstance* patch = Instance_getPatch( instance );
+				patch->m_selectable.isSelected();
+			}
+		*/
 		for ( std::size_t w = 0; w != width; ++w, p1 += col_stride )
 		{
 			{
@@ -1223,6 +1223,7 @@ void Patch::ProjectTexture( TextureProjection projection, const Vector3& normal 
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 #endif
 
@@ -1238,6 +1239,7 @@ void Patch::ProjectTexture( const texdef_t& texdef, const Vector3* direction ){
 	}
 
 	controlPointsChanged();
+	Patch_textureChanged();
 }
 
 void Patch::constructPlane( const AABB& aabb, int axis, std::size_t width, std::size_t height ){
@@ -1446,9 +1448,9 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		int n = ( width - 1 ) / 2; // n = number of segments
 		setDims( width, height );
 
-		// vPos[0] = vector3_subtracted(aabb.origin, aabb.extents);
+		// vPos[0] = vector3_subtracted( aabb.origin, aabb.extents );
 		// vPos[1] = aabb.origin;
-		// vPos[2] = vector3_added(aabb.origin, aabb.extents);
+		// vPos[2] = vector3_added( aabb.origin, aabb.extents );
 
 		unsigned int i, j;
 		float f = 1 / cos( M_PI / n );
@@ -1472,9 +1474,9 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		int n = ( width - 1 ) / 2; // n = number of segments
 		setDims( width, height );
 
-		// vPos[0] = vector3_subtracted(aabb.origin, aabb.extents);
+		// vPos[0] = vector3_subtracted( aabb.origin, aabb.extents );
 		// vPos[1] = aabb.origin;
-		// vPos[2] = vector3_added(aabb.origin, aabb.extents);
+		// vPos[2] = vector3_added( aabb.origin, aabb.extents );
 
 		unsigned int i, j;
 		float f = 1 / cos( M_PI / n );
@@ -1499,9 +1501,9 @@ void Patch::ConstructPrefab( const AABB& aabb, EPatchPrefab eType, int axis, std
 		int m = ( height - 1 ) / 2; // m = number of segments (pitch)
 		setDims( width, height );
 
-		// vPos[0] = vector3_subtracted(aabb.origin, aabb.extents);
+		// vPos[0] = vector3_subtracted( aabb.origin, aabb.extents );
 		// vPos[1] = aabb.origin;
-		// vPos[2] = vector3_added(aabb.origin, aabb.extents);
+		// vPos[2] = vector3_added( aabb.origin, aabb.extents );
 
 		unsigned int i, j;
 		float f = 1 / cos( M_PI / n );
@@ -2167,8 +2169,8 @@ void Patch::TesselateSubMatrix( const BezierCurveTree *BX, const BezierCurveTree
 	}
 
 
-	//if((nFlagsX & DEGEN_0a) && (nFlagsX & DEGEN_1a) && (nFlagsX & DEGEN_2a)) { newFlagsX |= DEGEN_0a; newFlagsX |= DEGEN_1a; newFlagsX |= DEGEN_2a; }
-	//if((nFlagsX & DEGEN_0b) && (nFlagsX & DEGEN_1b) && (nFlagsX & DEGEN_2b)) { newFlagsX |= DEGEN_0b; newFlagsX |= DEGEN_1b; newFlagsX |= DEGEN_2b; }
+	//if( ( nFlagsX & DEGEN_0a ) && ( nFlagsX & DEGEN_1a ) && ( nFlagsX & DEGEN_2a ) ) { newFlagsX |= DEGEN_0a; newFlagsX |= DEGEN_1a; newFlagsX |= DEGEN_2a; }
+	//if( ( nFlagsX & DEGEN_0b ) && ( nFlagsX & DEGEN_1b ) && ( nFlagsX & DEGEN_2b ) ) { newFlagsX |= DEGEN_0b; newFlagsX |= DEGEN_1b; newFlagsX |= DEGEN_2b; }
 
 	newFlagsX |= ( nFlagsX & SPLIT );
 	newFlagsX |= ( nFlagsX & AVERAGE );
@@ -2576,30 +2578,295 @@ void Patch::accumulateVertexTangentSpace( std::size_t index, Vector3 tangentX[6]
 const std::size_t PATCH_MAX_VERTEX_ARRAY = 1048576;
 
 void Patch::BuildVertexArray(){
-	m_tess.m_vertices.resize(m_ctrlTransformed.size());
-	m_tess.m_indices.resize(m_width*(m_height-1)*2);
+	const std::size_t strideU = 1;
+	const std::size_t strideV = m_width;
 
-	// Copy control vertices to m_tess vertices, this is a leftover from old tesselation system
-	// TODO: Clean this up
-	for( std::size_t i = 0; i < m_ctrlTransformed.size(); i++ ) {
-		vertex_assign_ctrl(m_tess.m_vertices[i], m_ctrlTransformed[i]);
+	const std::size_t numElems = m_tess.m_nArrayWidth * m_tess.m_nArrayHeight; // total number of elements in vertex array
+
+	const bool bWidthStrips = ( m_tess.m_nArrayWidth >= m_tess.m_nArrayHeight ); // decide if horizontal strips are longer than vertical
+
+
+	// allocate vertex, normal, texcoord and primitive-index arrays
+	m_tess.m_vertices.resize( numElems );
+	m_tess.m_indices.resize( m_tess.m_nArrayWidth * 2 * ( m_tess.m_nArrayHeight - 1 ) );
+
+	// set up strip indices
+	if ( bWidthStrips ) {
+		m_tess.m_numStrips = m_tess.m_nArrayHeight - 1;
+		m_tess.m_lenStrips = m_tess.m_nArrayWidth * 2;
+
+		for ( std::size_t i = 0; i < m_tess.m_nArrayWidth; i++ )
+		{
+			for ( std::size_t j = 0; j < m_tess.m_numStrips; j++ )
+			{
+				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2] = RenderIndex( j * m_tess.m_nArrayWidth + i );
+				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( ( j + 1 ) * m_tess.m_nArrayWidth + i );
+				// reverse because radiant uses CULL_FRONT
+				//m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( j * m_tess.m_nArrayWidth + i );
+				//m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2] = RenderIndex( ( j + 1 ) * m_tess.m_nArrayWidth + i );
+			}
+		}
 	}
+	else
+	{
+		m_tess.m_numStrips = m_tess.m_nArrayWidth - 1;
+		m_tess.m_lenStrips = m_tess.m_nArrayHeight * 2;
 
-	m_tess.m_numStrips = m_height - 1;
-	m_tess.m_lenStrips = m_width * 2;
-	
-	// Triangles
-	for( int y = 0; y < m_height - 1; y++ ) {
-		for( int x = 0; x < m_width; x++ ) {
-			std::size_t index = x + y * m_width;
-		
-			m_tess.m_indices[index * 2] = index;
-			m_tess.m_indices[index * 2 + 1] = index + m_width;
+		for ( std::size_t i = 0; i < m_tess.m_nArrayHeight; i++ )
+		{
+			for ( std::size_t j = 0; j < m_tess.m_numStrips; j++ )
+			{
+				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j );
+				m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j + 1 );
+				// reverse because radiant uses CULL_FRONT
+				//m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 + 1] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j );
+				//m_tess.m_indices[( j * m_tess.m_lenStrips ) + i * 2 ] = RenderIndex( ( ( m_tess.m_nArrayHeight - 1 ) - i ) * m_tess.m_nArrayWidth + j + 1 );
+
+			}
 		}
 	}
 
-	m_tess.m_nArrayWidth = m_width;
-	m_tess.m_nArrayHeight = m_height;
+	{
+		PatchControlIter pCtrl = m_ctrlTransformed.data();
+		for ( std::size_t j = 0, offStartY = 0; j + 1 < m_height; j += 2, pCtrl += ( strideU + strideV ) )
+		{
+			// set up array offsets for this sub-patch
+			const bool leafY = ( m_patchDef3 ) ? false : BezierCurveTree_isLeaf( m_tess.m_curveTreeV[j >> 1] );
+			const std::size_t offMidY = ( m_patchDef3 ) ? 0 : m_tess.m_curveTreeV[j >> 1]->index;
+			const std::size_t widthY = m_tess.m_arrayHeight[j >> 1] * m_tess.m_nArrayWidth;
+			const std::size_t offEndY = offStartY + widthY;
+
+			for ( std::size_t i = 0, offStartX = 0; i + 1 < m_width; i += 2, pCtrl += ( strideU << 1 ) )
+			{
+				const bool leafX = ( m_patchDef3 ) ? false : BezierCurveTree_isLeaf( m_tess.m_curveTreeU[i >> 1] );
+				const std::size_t offMidX = ( m_patchDef3 ) ? 0 : m_tess.m_curveTreeU[i >> 1]->index;
+				const std::size_t widthX = m_tess.m_arrayWidth[i >> 1];
+				const std::size_t offEndX = offStartX + widthX;
+
+				PatchControl *subMatrix[3][3];
+				subMatrix[0][0] = pCtrl;
+				subMatrix[0][1] = subMatrix[0][0] + strideU;
+				subMatrix[0][2] = subMatrix[0][1] + strideU;
+				subMatrix[1][0] = subMatrix[0][0] + strideV;
+				subMatrix[1][1] = subMatrix[1][0] + strideU;
+				subMatrix[1][2] = subMatrix[1][1] + strideU;
+				subMatrix[2][0] = subMatrix[1][0] + strideV;
+				subMatrix[2][1] = subMatrix[2][0] + strideU;
+				subMatrix[2][2] = subMatrix[2][1] + strideU;
+
+				// assign on-patch control points to vertex array
+				if ( i == 0 && j == 0 ) {
+					vertex_clear_normal( m_tess.m_vertices[offStartX + offStartY] );
+				}
+				vertex_assign_ctrl( m_tess.m_vertices[offStartX + offStartY], *subMatrix[0][0] );
+				if ( j == 0 ) {
+					vertex_clear_normal( m_tess.m_vertices[offEndX + offStartY] );
+				}
+				vertex_assign_ctrl( m_tess.m_vertices[offEndX + offStartY], *subMatrix[0][2] );
+				if ( i == 0 ) {
+					vertex_clear_normal( m_tess.m_vertices[offStartX + offEndY] );
+				}
+				vertex_assign_ctrl( m_tess.m_vertices[offStartX + offEndY], *subMatrix[2][0] );
+
+				vertex_clear_normal( m_tess.m_vertices[offEndX + offEndY] );
+				vertex_assign_ctrl( m_tess.m_vertices[offEndX + offEndY], *subMatrix[2][2] );
+
+				if ( !m_patchDef3 ) {
+					// assign remaining control points to vertex array
+					if ( !leafX ) {
+						vertex_assign_ctrl( m_tess.m_vertices[offMidX + offStartY], *subMatrix[0][1] );
+						vertex_assign_ctrl( m_tess.m_vertices[offMidX + offEndY], *subMatrix[2][1] );
+					}
+					if ( !leafY ) {
+						vertex_assign_ctrl( m_tess.m_vertices[offStartX + offMidY], *subMatrix[1][0] );
+						vertex_assign_ctrl( m_tess.m_vertices[offEndX + offMidY], *subMatrix[1][2] );
+
+						if ( !leafX ) {
+							vertex_assign_ctrl( m_tess.m_vertices[offMidX + offMidY], *subMatrix[1][1] );
+						}
+					}
+				}
+
+				// test all 12 edges for degeneracy
+				unsigned int nFlagsX = subarray_get_degen( pCtrl, strideU, strideV );
+				unsigned int nFlagsY = subarray_get_degen( pCtrl, strideV, strideU );
+				Vector3 tangentX[6], tangentY[6];
+				Vector2 tangentS[6], tangentT[6];
+
+				// set up tangents for each of the 12 edges if they were not degenerate
+				if ( !( nFlagsX & DEGEN_0a ) ) {
+					tangentX[0] = vector3_subtracted( subMatrix[0][1]->m_vertex, subMatrix[0][0]->m_vertex );
+					tangentS[0] = vector2_subtracted( subMatrix[0][1]->m_texcoord, subMatrix[0][0]->m_texcoord );
+				}
+				if ( !( nFlagsX & DEGEN_0b ) ) {
+					tangentX[1] = vector3_subtracted( subMatrix[0][2]->m_vertex, subMatrix[0][1]->m_vertex );
+					tangentS[1] = vector2_subtracted( subMatrix[0][2]->m_texcoord, subMatrix[0][1]->m_texcoord );
+				}
+				if ( !( nFlagsX & DEGEN_1a ) ) {
+					tangentX[2] = vector3_subtracted( subMatrix[1][1]->m_vertex, subMatrix[1][0]->m_vertex );
+					tangentS[2] = vector2_subtracted( subMatrix[1][1]->m_texcoord, subMatrix[1][0]->m_texcoord );
+				}
+				if ( !( nFlagsX & DEGEN_1b ) ) {
+					tangentX[3] = vector3_subtracted( subMatrix[1][2]->m_vertex, subMatrix[1][1]->m_vertex );
+					tangentS[3] = vector2_subtracted( subMatrix[1][2]->m_texcoord, subMatrix[1][1]->m_texcoord );
+				}
+				if ( !( nFlagsX & DEGEN_2a ) ) {
+					tangentX[4] = vector3_subtracted( subMatrix[2][1]->m_vertex, subMatrix[2][0]->m_vertex );
+					tangentS[4] = vector2_subtracted( subMatrix[2][1]->m_texcoord, subMatrix[2][0]->m_texcoord );
+				}
+				if ( !( nFlagsX & DEGEN_2b ) ) {
+					tangentX[5] = vector3_subtracted( subMatrix[2][2]->m_vertex, subMatrix[2][1]->m_vertex );
+					tangentS[5] = vector2_subtracted( subMatrix[2][2]->m_texcoord, subMatrix[2][1]->m_texcoord );
+				}
+
+				if ( !( nFlagsY & DEGEN_0a ) ) {
+					tangentY[0] = vector3_subtracted( subMatrix[1][0]->m_vertex, subMatrix[0][0]->m_vertex );
+					tangentT[0] = vector2_subtracted( subMatrix[1][0]->m_texcoord, subMatrix[0][0]->m_texcoord );
+				}
+				if ( !( nFlagsY & DEGEN_0b ) ) {
+					tangentY[1] = vector3_subtracted( subMatrix[2][0]->m_vertex, subMatrix[1][0]->m_vertex );
+					tangentT[1] = vector2_subtracted( subMatrix[2][0]->m_texcoord, subMatrix[1][0]->m_texcoord );
+				}
+				if ( !( nFlagsY & DEGEN_1a ) ) {
+					tangentY[2] = vector3_subtracted( subMatrix[1][1]->m_vertex, subMatrix[0][1]->m_vertex );
+					tangentT[2] = vector2_subtracted( subMatrix[1][1]->m_texcoord, subMatrix[0][1]->m_texcoord );
+				}
+				if ( !( nFlagsY & DEGEN_1b ) ) {
+					tangentY[3] = vector3_subtracted( subMatrix[2][1]->m_vertex, subMatrix[1][1]->m_vertex );
+					tangentT[3] = vector2_subtracted( subMatrix[2][1]->m_texcoord, subMatrix[1][1]->m_texcoord );
+				}
+				if ( !( nFlagsY & DEGEN_2a ) ) {
+					tangentY[4] = vector3_subtracted( subMatrix[1][2]->m_vertex, subMatrix[0][2]->m_vertex );
+					tangentT[4] = vector2_subtracted( subMatrix[1][2]->m_texcoord, subMatrix[0][2]->m_texcoord );
+				}
+				if ( !( nFlagsY & DEGEN_2b ) ) {
+					tangentY[5] = vector3_subtracted( subMatrix[2][2]->m_vertex, subMatrix[1][2]->m_vertex );
+					tangentT[5] = vector2_subtracted( subMatrix[2][2]->m_texcoord, subMatrix[1][2]->m_texcoord );
+				}
+
+				// set up remaining edge tangents by borrowing the tangent from the closest parallel non-degenerate edge
+				tangents_remove_degenerate( tangentX, tangentS, nFlagsX );
+				tangents_remove_degenerate( tangentY, tangentT, nFlagsY );
+
+				{
+					// x=0, y=0
+					std::size_t index = offStartX + offStartY;
+					std::size_t index0 = 0;
+					std::size_t index1 = 0;
+
+					double dot = vector3_dot( tangentX[index0], tangentY[index1] );
+					double length = vector3_length( tangentX[index0] ) * vector3_length( tangentY[index1] );
+
+					bestTangents00( nFlagsX, dot, length, index0, index1 );
+
+					accumulateVertexTangentSpace( index, tangentX, tangentY, tangentS, tangentT, index0, index1 );
+				}
+
+				{
+					// x=1, y=0
+					std::size_t index = offEndX + offStartY;
+					std::size_t index0 = 1;
+					std::size_t index1 = 4;
+
+					double dot = vector3_dot( tangentX[index0], tangentY[index1] );
+					double length = vector3_length( tangentX[index0] ) * vector3_length( tangentY[index1] );
+
+					bestTangents10( nFlagsX, dot, length, index0, index1 );
+
+					accumulateVertexTangentSpace( index, tangentX, tangentY, tangentS, tangentT, index0, index1 );
+				}
+
+				{
+					// x=0, y=1
+					std::size_t index = offStartX + offEndY;
+					std::size_t index0 = 4;
+					std::size_t index1 = 1;
+
+					double dot = vector3_dot( tangentX[index0], tangentY[index1] );
+					double length = vector3_length( tangentX[index1] ) * vector3_length( tangentY[index1] );
+
+					bestTangents01( nFlagsX, dot, length, index0, index1 );
+
+					accumulateVertexTangentSpace( index, tangentX, tangentY, tangentS, tangentT, index0, index1 );
+				}
+
+				{
+					// x=1, y=1
+					std::size_t index = offEndX + offEndY;
+					std::size_t index0 = 5;
+					std::size_t index1 = 5;
+
+					double dot = vector3_dot( tangentX[index0], tangentY[index1] );
+					double length = vector3_length( tangentX[index0] ) * vector3_length( tangentY[index1] );
+
+					bestTangents11( nFlagsX, dot, length, index0, index1 );
+
+					accumulateVertexTangentSpace( index, tangentX, tangentY, tangentS, tangentT, index0, index1 );
+				}
+
+				//normalise normals that won't be accumulated again
+				if ( i != 0 || j != 0 ) {
+					normalise_safe( normal_for_index( m_tess.m_vertices, offStartX + offStartY ) );
+					normalise_safe( tangent_for_index( m_tess.m_vertices, offStartX + offStartY ) );
+					normalise_safe( bitangent_for_index( m_tess.m_vertices, offStartX + offStartY ) );
+				}
+				if ( i + 3 == m_width ) {
+					normalise_safe( normal_for_index( m_tess.m_vertices, offEndX + offStartY ) );
+					normalise_safe( tangent_for_index( m_tess.m_vertices, offEndX + offStartY ) );
+					normalise_safe( bitangent_for_index( m_tess.m_vertices, offEndX + offStartY ) );
+				}
+				if ( j + 3 == m_height ) {
+					normalise_safe( normal_for_index( m_tess.m_vertices, offStartX + offEndY ) );
+					normalise_safe( tangent_for_index( m_tess.m_vertices, offStartX + offEndY ) );
+					normalise_safe( bitangent_for_index( m_tess.m_vertices, offStartX + offEndY ) );
+				}
+				if ( i + 3 == m_width && j + 3 == m_height ) {
+					normalise_safe( normal_for_index( m_tess.m_vertices, offEndX + offEndY ) );
+					normalise_safe( tangent_for_index( m_tess.m_vertices, offEndX + offEndY ) );
+					normalise_safe( bitangent_for_index( m_tess.m_vertices, offEndX + offEndY ) );
+				}
+
+				// set flags to average normals between shared edges
+				if ( j != 0 ) {
+					nFlagsX |= AVERAGE;
+				}
+				if ( i != 0 ) {
+					nFlagsY |= AVERAGE;
+				}
+				// set flags to save evaluating shared edges twice
+				nFlagsX |= SPLIT;
+				nFlagsY |= SPLIT;
+
+				// if the patch is curved.. tesselate recursively
+				// use the relevant control curves for this sub-patch
+				if ( m_patchDef3 ) {
+					TesselateSubMatrixFixed( m_tess.m_vertices.data() + offStartX + offStartY, 1, m_tess.m_nArrayWidth, nFlagsX, nFlagsY, subMatrix );
+				}
+				else
+				{
+					if ( !leafX ) {
+						TesselateSubMatrix( m_tess.m_curveTreeU[i >> 1], m_tess.m_curveTreeV[j >> 1],
+						                    offStartX, offStartY, offEndX, offEndY, // array offsets
+						                    nFlagsX, nFlagsY,
+						                    subMatrix[1][0]->m_vertex, subMatrix[1][1]->m_vertex, subMatrix[1][2]->m_vertex,
+						                    subMatrix[1][0]->m_texcoord, subMatrix[1][1]->m_texcoord, subMatrix[1][2]->m_texcoord,
+						                    false );
+					}
+					else if ( !leafY ) {
+						TesselateSubMatrix( m_tess.m_curveTreeV[j >> 1], m_tess.m_curveTreeU[i >> 1],
+						                    offStartY, offStartX, offEndY, offEndX, // array offsets
+						                    nFlagsY, nFlagsX,
+						                    subMatrix[0][1]->m_vertex, subMatrix[1][1]->m_vertex, subMatrix[2][1]->m_vertex,
+						                    subMatrix[0][1]->m_texcoord, subMatrix[1][1]->m_texcoord, subMatrix[2][1]->m_texcoord,
+						                    true );
+					}
+				}
+
+				offStartX = offEndX;
+			}
+			offStartY = offEndY;
+		}
+	}
 }
 
 
@@ -2648,7 +2915,7 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 	setDims( sourcePatch.getWidth(), sourcePatch.getHeight() );
 
 	// Also inherit the tesselation from the source patch
-	//setFixedSubdivisions(sourcePatch.subdivionsFixed(), sourcePatch.getSubdivisions());
+	//setFixedSubdivisions( sourcePatch.subdivionsFixed(), sourcePatch.getSubdivisions() );
 
 	// Copy the shader from the source patch
 	SetShader( sourcePatch.GetShader() );
@@ -2656,7 +2923,7 @@ void Patch::createThickenedOpposite( const Patch& sourcePatch,
 	// if extrudeAxis == 0,0,0 the patch is extruded along its vertex normals
 	Vector3 extrudeAxis( 0 );
 
-	switch (axis) {
+	switch ( axis ) {
 	case 0: // X-Axis
 		extrudeAxis = Vector3( 1, 0, 0 );
 		break;
@@ -2964,7 +3231,7 @@ void Patch::createThickenedWall( const Patch& sourcePatch,
 		break;
 	case 1:
 		cols = sourceWidth;
-		start = sourceWidth * (sourceHeight-1);
+		start = sourceWidth * ( sourceHeight - 1 );
 		end = sourceWidth*sourceHeight - 1;
 		incr = 1;
 		//setFixedSubdivisions( sourceTesselationFixed, sourceTesselationX );
@@ -2972,14 +3239,14 @@ void Patch::createThickenedWall( const Patch& sourcePatch,
 	case 2:
 		cols = sourceHeight;
 		start = 0;
-		end = sourceWidth*(sourceHeight-1);
+		end = sourceWidth * ( sourceHeight - 1 );
 		incr = sourceWidth;
 		//setFixedSubdivisions( sourceTesselationFixed, sourceTesselationY );
 		break;
 	case 3:
 		cols = sourceHeight;
 		start = sourceWidth - 1;
-		end = sourceWidth*sourceHeight - 1;
+		end = sourceWidth * sourceHeight - 1;
 		incr = sourceWidth;
 		//setFixedSubdivisions( sourceTesselationFixed, sourceTesselationY );
 		break;

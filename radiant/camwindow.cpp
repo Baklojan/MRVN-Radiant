@@ -798,11 +798,11 @@ private:
 		switch ( i )
 		{
 		case 0:
-			return g_xywindow_globals.AxisColorX;
+			return Vector3( g_colour_x.r, g_colour_x.g, g_colour_x.b ) / 255.f;
 		case 1:
-			return g_xywindow_globals.AxisColorY;
+			return Vector3( g_colour_y.r, g_colour_y.g, g_colour_y.b ) / 255.f;
 		default:
-			return Vector3( g_xywindow_globals.AxisColorZ.x(), 0.7f, g_xywindow_globals.AxisColorZ.z() ); //hack to make default blue visible better
+			return Vector3( g_colour_z.r, 178, g_colour_z.b ) / 255.f; //hack to make default blue visible better
 		}
 	}
 	void updateTex( const std::size_t i, const float extent ){
@@ -968,7 +968,7 @@ public:
 
 	bool m_drawing;
 	void queue_draw(){
-		//ASSERT_MESSAGE(!m_drawing, "CamWnd::queue_draw(): called while draw is already in progress");
+		//ASSERT_MESSAGE( !m_drawing, "CamWnd::queue_draw(): called while draw is already in progress" );
 		if ( m_drawing ) {
 			return;
 		}
@@ -1122,7 +1122,7 @@ void camera_orbit_init( camera_t& cam, Vector2 xy ){
 
 	const Vector2 epsilon( 8.f / cam.width, 8.f / cam.height ); //device epsilon
 
-	Scene_Intersect( *cam.m_view, xy.data(), epsilon.data(), cam.m_orbit_center );
+	Scene_Intersect( *cam.m_view, xy, epsilon, cam.m_orbit_center );
 
 	cam.m_orbit_initial_pos = cam.origin;
 	cam.m_orbit_offset = 0;
@@ -2173,13 +2173,12 @@ Vector3 Camera_getFocusPos( camera_t& camera ){
 		plane3_translated( view.getFrustum().top,    camorigin - aabb.origin ),
 		plane3_translated( view.getFrustum().bottom, camorigin - aabb.origin ),
 	};
-
 	float offset = 64.0f;
 
 	const std::array<Vector3, 8> corners = aabb_corners( aabb );
 
-	for ( const Plane3 &plane : frustumPlanes ) {
-		for ( const Vector3 &corner : corners ) {
+	for ( const Plane3& plane : frustumPlanes ){
+		for ( const Vector3& corner : corners ){
 			const Ray ray( aabb.origin, -viewvector );
 			//Plane3 newplane( plane.normal(), vector3_dot( plane.normal(), corner - plane.normal() * 16.0f ) );
 			const Plane3 newplane( plane.normal(), vector3_dot( plane.normal(), corner ) );
@@ -2452,7 +2451,7 @@ void Camera_constructPreferences( PreferencesPage& page ){
 	page.appendSpinner( "Field Of View", 1.0, 175.0,
 	                    FloatImportCallback( fieldOfViewImportCaller() ),
 	                    FloatExportCallback( FloatExportCaller( camera_t::fieldOfView ) ),
-						0
+	                    0
 	                  );
 }
 void Camera_constructPage( PreferenceGroup& group ){
@@ -2550,8 +2549,8 @@ void CamWnd_Construct(){
 	GlobalPreferenceSystem().registerPreference( "CamDiscrete", makeBoolStringImportCallback( CamWndMoveDiscreteImportCaller() ), BoolExportStringCaller( g_camwindow_globals_private.m_bCamDiscrete ) );
 	GlobalPreferenceSystem().registerPreference( "CubicClipping", BoolImportStringCaller( g_camwindow_globals_private.m_bCubicClipping ), BoolExportStringCaller( g_camwindow_globals_private.m_bCubicClipping ) );
 	GlobalPreferenceSystem().registerPreference( "CubicScale", IntImportStringCaller( g_camwindow_globals.m_nCubicScale ), IntExportStringCaller( g_camwindow_globals.m_nCubicScale ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors4", Vector3ImportStringCaller( g_camwindow_globals.color_cameraback ), Vector3ExportStringCaller( g_camwindow_globals.color_cameraback ) );
-	GlobalPreferenceSystem().registerPreference( "SI_Colors12", Vector3ImportStringCaller( g_camwindow_globals.color_selbrushes3d ), Vector3ExportStringCaller( g_camwindow_globals.color_selbrushes3d ) );
+	GlobalPreferenceSystem().registerPreference( "ColorCameraBackground", Vector3ImportStringCaller( g_camwindow_globals.color_cameraback ), Vector3ExportStringCaller( g_camwindow_globals.color_cameraback ) );
+	GlobalPreferenceSystem().registerPreference( "ColorCameraSelection", Vector3ImportStringCaller( g_camwindow_globals.color_selbrushes3d ), Vector3ExportStringCaller( g_camwindow_globals.color_selbrushes3d ) );
 	GlobalPreferenceSystem().registerPreference( "CameraRenderMode", makeIntStringImportCallback( RenderModeImportCaller() ), makeIntStringExportCallback( RenderModeExportCaller() ) );
 	GlobalPreferenceSystem().registerPreference( "CameraMSAA", IntImportStringCaller( g_camwindow_globals_private.m_MSAA ), IntExportStringCaller( g_camwindow_globals_private.m_MSAA ) );
 	GlobalPreferenceSystem().registerPreference( "StrafeMode", IntImportStringCaller( g_camwindow_globals_private.m_strafeMode ), IntExportStringCaller( g_camwindow_globals_private.m_strafeMode ) );

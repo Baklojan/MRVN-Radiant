@@ -52,7 +52,7 @@
 
 struct entity_globals_t
 {
-	Vector3 color_entity = { 0.0f, 0.0f, 0.0f };
+	Vector3 color_entity = Vector3( 1.0f );
 };
 
 entity_globals_t g_entity_globals;
@@ -260,7 +260,7 @@ public:
 					Node_getTraversable( group )->insert( child );
 
 					if ( Node_getTraversable( parent )->empty() ) {
-						//deleteme.push(DeletionPair(parentparent, parent));
+						//deleteme.push( DeletionPair( parentparent, parent ) );
 						Node_getTraversable( parentparent )->erase( parent );
 					}
 				}
@@ -383,13 +383,14 @@ void Entity_createFromSelection( const char* name, const Vector3& origin ){
 		return;
 	}
 #else
-	const scene::Node* world_node = Map_FindWorldspawn( g_map );
-	if ( world_node && string_equal( name, "worldspawn" ) ) {
-//		GlobalRadiant().m_pfnMessageBox( MainFrame_getWindow(), "There's already a worldspawn in your map!", "Info", EMessageBoxType::Info, 0 );
-		UndoableCommand undo( "ungroupSelectedPrimitives" );
-		Scene_parentSelectedBrushesToEntity( GlobalSceneGraph(), Map_FindOrInsertWorldspawn( g_map ) ); //=no action, if no worldspawn (but one inserted) (since insertion deselects everything)
-		//Scene_parentSelectedBrushesToEntity( GlobalSceneGraph(), *Map_FindWorldspawn( g_map ) ); = crash, if no worldspawn
-		return;
+	if ( string_equal( name, "worldspawn" ) ) {
+		// only process if worldspawn is present
+		// Map_FindOrInsertWorldspawn( g_map ) ) would be no action (since worldspawn insertion deselects everything)
+		if( scene::Node* world_node = Map_FindWorldspawn( g_map ) ){
+			UndoableCommand undo( "ungroupSelectedPrimitives" );
+			Scene_parentSelectedBrushesToEntity( GlobalSceneGraph(), *world_node );
+			return;
+		}
 	}
 #endif
 
@@ -690,9 +691,15 @@ void ToggleShowLightRadii(){
 	UpdateAllWindows();
 }
 
+inline bool game_has_killConnect(){
+	return g_pGameDescription->mGameType == "nexuiz"
+	    || g_pGameDescription->mGameType == "xonotic"
+	    || g_pGameDescription->mGameType == "q1";
+}
+
 void Entity_constructMenu( QMenu* menu ){
 	create_menu_item_with_mnemonic( menu, "&Connect Entities", "EntitiesConnect" );
-	if ( g_pGameDescription->mGameType == "nexuiz" || g_pGameDescription->mGameType == "q1" ) {
+	if ( game_has_killConnect() ) {
 		create_menu_item_with_mnemonic( menu, "&KillConnect Entities", "EntitiesKillConnect" );
 	}
 	create_menu_item_with_mnemonic( menu, "&Move Primitives to Entity", "EntityMovePrimitivesToLast" );
@@ -715,7 +722,7 @@ void Entity_Construct(){
 	GlobalCommands_insert( "EntityColorSet", makeCallbackF( Entity_setColour ), QKeySequence( "K" ) );
 	GlobalCommands_insert( "EntityColorNormalize", makeCallbackF( Entity_normalizeColor ) );
 	GlobalCommands_insert( "EntitiesConnect", makeCallbackF( Entity_connectSelected ), QKeySequence( "Ctrl+K" ) );
-	if ( g_pGameDescription->mGameType == "nexuiz" || g_pGameDescription->mGameType == "q1" )
+	if ( game_has_killConnect() )
 		GlobalCommands_insert( "EntitiesKillConnect", makeCallbackF( Entity_killconnectSelected ), QKeySequence( "Shift+K" ) );
 	GlobalCommands_insert( "EntityMovePrimitivesToLast", makeCallbackF( Entity_moveSelectedPrimitivesToLast ), QKeySequence( "Ctrl+M" ) );
 	GlobalCommands_insert( "EntityMovePrimitivesToFirst", makeCallbackF( Entity_moveSelectedPrimitivesToFirst ) );
@@ -724,7 +731,7 @@ void Entity_Construct(){
 
 	GlobalToggles_insert( "ShowLightRadiuses", makeCallbackF( ToggleShowLightRadii ), ToggleItem::AddCallbackCaller( g_show_lightradii_item ) );
 
-	GlobalPreferenceSystem().registerPreference( "SI_Colors5", Vector3ImportStringCaller( g_entity_globals.color_entity ), Vector3ExportStringCaller( g_entity_globals.color_entity ) );
+	GlobalPreferenceSystem().registerPreference( "EntitySelectedColor", Vector3ImportStringCaller( g_entity_globals.color_entity ), Vector3ExportStringCaller( g_entity_globals.color_entity ) );
 	GlobalPreferenceSystem().registerPreference( "LastLightIntensity", IntImportStringCaller( g_iLastLightIntensity ), IntExportStringCaller( g_iLastLightIntensity ) );
 
 	Entity_registerPreferencesPage();

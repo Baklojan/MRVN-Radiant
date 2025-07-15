@@ -85,13 +85,13 @@ class NameObserver
 
 	void construct(){
 		if ( !empty() ) {
-			//globalOutputStream() << "construct " << makeQuoted(c_str()) << '\n';
+			//globalOutputStream() << "construct " << makeQuoted( c_str() ) << '\n';
 			m_names.insert( name_read( c_str() ) );
 		}
 	}
 	void destroy(){
 		if ( !empty() ) {
-			//globalOutputStream() << "destroy " << makeQuoted(c_str()) << '\n';
+			//globalOutputStream() << "destroy " << makeQuoted( c_str() ) << '\n';
 			m_names.erase( name_read( c_str() ) );
 		}
 	}
@@ -133,12 +133,12 @@ public:
 		std::pair<Names::iterator, bool> result = m_names.insert( Names::value_type( setName, m_uniqueNames ) );
 		ASSERT_MESSAGE( result.second, "cannot attach name" );
 		attachObserver( NameObserver::NameChangedCaller( ( *result.first ).second ) );
-		//globalOutputStream() << "attach: " << reinterpret_cast<const unsigned int&>(setName) << '\n';
+		//globalOutputStream() << "attach: " << reinterpret_cast<const unsigned int&>( setName ) << '\n';
 	}
 	void detach( const NameCallback& setName, const NameCallbackCallback& detachObserver ){
 		Names::iterator i = m_names.find( setName );
 		ASSERT_MESSAGE( i != m_names.end(), "cannot detach name" );
-		//globalOutputStream() << "detach: " << reinterpret_cast<const unsigned int&>(setName) << '\n';
+		//globalOutputStream() << "detach: " << reinterpret_cast<const unsigned int&>( setName ) << '\n';
 		detachObserver( NameObserver::NameChangedCaller( ( *i ).second ) );
 		m_names.erase( i );
 	}
@@ -169,7 +169,7 @@ public:
 			char buffer[1024];
 			name_write( buffer, uniqueName );
 
-			//globalOutputStream() << "renaming " << makeQuoted(name.c_str()) << " to " << makeQuoted(buffer) << '\n';
+			//globalOutputStream() << "renaming " << makeQuoted( name.c_str() ) << " to " << makeQuoted( buffer ) << '\n';
 
 			for ( const NameCallback& nameCallback : setNameCallbacks )
 			{
@@ -283,7 +283,7 @@ public:
 
 	Signal0 m_mapValidCallbacks;
 
-	WorldNode m_world_node;   // "classname' 'worldspawn" !
+	WorldNode m_world_node;   // "classname" "worldspawn" !
 
 	Map() : m_resource( 0 ), m_valid( false ), m_modified_changed( Map_UpdateTitle ){
 	}
@@ -850,7 +850,7 @@ public:
 				return true;
 			}
 			if( !string_equal_nocase_n( "light", classname, 5 ) &&
-			    !string_equal_nocase( "prop_static", classname ) ){
+			    !string_equal_nocase( "misc_model", classname ) ){
 				++m_ents_ingame;
 			}
 		}
@@ -1155,7 +1155,7 @@ class RegionExcluder : public Excluder
 {
 public:
 	bool excluded( scene::Node& node ) const {
-		return node.excluded();
+		return node.excluded( scene::Node::eExcluded );
 	}
 };
 
@@ -1173,7 +1173,7 @@ void Map_RenameAbsolute( const char* absolute ){
 	resource->setNode( clone.get_pointer() );
 
 	{
-		//ScopeTimer timer("clone subgraph");
+		//ScopeTimer timer( "clone subgraph" );
 		Node_getTraversable( GlobalSceneGraph().root() )->traverse( CloneAll( clone ) );
 	}
 
@@ -1228,7 +1228,7 @@ void Map_New(){
 
 	{
 		g_map.m_resource = GlobalReferenceCache().capture( g_map.m_name.c_str() );
-//    ASSERT_MESSAGE(g_map.m_resource->getNode() == 0, "bleh");
+//		ASSERT_MESSAGE( g_map.m_resource->getNode() == 0, "bleh" );
 		g_map.m_resource->attach( g_map );
 
 		SceneChangeNotify();
@@ -1255,8 +1255,10 @@ ToggleItem g_region_item{ BoolExportCaller( g_region_active ) };
 Vector3 g_region_mins;
 Vector3 g_region_maxs;
 void Region_defaultMinMax(){
-	g_region_maxs = Vector3( GetMaxGridCoord() );
-	g_region_mins = -g_region_maxs;
+	if( !g_region_active ){ // don't invalidate region bounds, while in region mode
+		g_region_maxs = Vector3( GetMaxGridCoord() );
+		g_region_mins = -g_region_maxs;
+	}
 }
 
 /*
@@ -1413,7 +1415,7 @@ void Map_ApplyRegion(){
 	g_region_item.update();
 
 	Scene_Exclude_Region( false );
-	/* newly created brushes have to be visible! */
+	/* not hiding worldspawn node so that newly created brushes are visible */
 	if( scene::Node* w = Map_FindWorldspawn( g_map ) )
 		exclude_node( *w, false );
 }
@@ -1434,7 +1436,7 @@ void Map_RegionSelectedBrushes(){
 		Select_GetBounds( g_region_mins, g_region_maxs );
 
 		Scene_Exclude_Selected( false );
-		/* newly created brushes have to be visible! */
+		/* not hiding worldspawn node so that newly created brushes are visible */
 		if( scene::Node* w = Map_FindWorldspawn( g_map ) )
 			exclude_node( *w, false );
 
@@ -1539,11 +1541,11 @@ tryDecompile:
 	if ( path_extension_is( filename, "bsp" ) || path_extension_is( filename, "map" ) ) {
 		StringOutputStream str( 256 );
 		str << AppPath_get() << "q3map2." << RADIANT_EXECUTABLE
-		<< " -v -game " << ((type && *type) ? type : "quake3")
-		<< " -fs_basepath " << makeQuoted(EnginePath_get())
-		<< " -fs_homepath " << makeQuoted(g_qeglobals.m_userEnginePath)
-		<< " -fs_game " << gamename_get()
-		<< " -convert -format " << (BrushType_getTexdefType(GlobalBrushCreator().getFormat()) == TEXDEFTYPEID_QUAKE ? "map" : "map_bp");
+		    << " -v -game " << ( ( type && *type ) ? type : "quake3" )
+		    << " -fs_basepath " << makeQuoted( EnginePath_get() )
+		    << " -fs_homepath " << makeQuoted( g_qeglobals.m_userEnginePath )
+		    << " -fs_game " << gamename_get()
+		    << " -convert -format " << ( BrushType_getTexdefType( GlobalBrushCreator().getFormat() ) == TEXDEFTYPEID_QUAKE ? "map" : "map_bp" );
 		if ( path_extension_is( filename, "map" ) ) {
 			str << " -readmap ";
 		}
@@ -1609,10 +1611,10 @@ bool Map_SaveSelected( const char* filename ){
 class ParentSelectedBrushesToEntityWalker : public scene::Graph::Walker
 {
 	scene::Node& m_parent;
-	scene::Node* m_world;
-	mutable bool m_emptyOldParent;
+	scene::Node* m_world = Map_FindWorldspawn( g_map );
+	mutable bool m_emptyOldParent = false;
 public:
-	ParentSelectedBrushesToEntityWalker( scene::Node& parent ) : m_parent( parent ), m_world( Map_FindWorldspawn( g_map ) ), m_emptyOldParent( false ){
+	ParentSelectedBrushesToEntityWalker( scene::Node& parent ) : m_parent( parent ){
 	}
 	bool pre( const scene::Path& path, scene::Instance& instance ) const {
 		return path.top().get_pointer() != &m_parent; /* skip traverse of target node */
@@ -1629,7 +1631,7 @@ public:
 		}
 		else if ( m_emptyOldParent ){
 			m_emptyOldParent = false;
-			if ( Node_isEntity( path.top() ) && path.top().get_pointer() != m_world	&& Node_getTraversable( path.top() )->empty() ) /* delete empty entity left */
+			if ( path.top().get_pointer() != m_world ) /* delete empty entity left */
 				Path_deleteTop( path );
 		}
 	}
@@ -2074,7 +2076,7 @@ void DoFind(){
 #include "filterbar.h"
 ////
 void map_autocaulk_selected(){
-	/*if (Map_Unnamed(g_map)) {
+	if ( Map_Unnamed( g_map ) ) {
 		if( !Map_SaveAs() )
 			return;
 	}
@@ -2209,7 +2211,7 @@ void map_autocaulk_selected(){
 
 	{	// compile
 		StringOutputStream str( 256 );
-		str << AppPath_get() << "remap." << RADIANT_EXECUTABLE
+		str << AppPath_get() << "q3map2." << RADIANT_EXECUTABLE
 		    << " -game quake3"
 		    << " -fs_basepath " << makeQuoted( EnginePath_get() )
 		    << " -fs_homepath " << makeQuoted( g_qeglobals.m_userEnginePath )
@@ -2315,7 +2317,7 @@ void map_autocaulk_selected(){
 		Map_Traverse_Selected( GlobalSceneGraph().root(), caulkBrushesWalker );
 		const auto str = StringStream<32>( "AutoCaulk ", caulkBrushesWalker.m_caulkedCount, " faces" );
 		GlobalUndoSystem().finish( str );
-	}*/
+	}
 }
 
 

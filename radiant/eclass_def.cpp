@@ -249,7 +249,8 @@ EntityClass *Eclass_InitFromText( const char *text ){
 	{ // any remaining words on the line are parm flags
 		const char *p = text;
 		// get the flags: advance past the first \n
-		while ( *text && *text++ != '\n' ) {};
+		while ( *text && *text++ != '\n' ){};
+
 		for ( std::size_t i = 0; i < MAX_FLAGS; i++ )
 		{
 			p = COM_Parse( p );

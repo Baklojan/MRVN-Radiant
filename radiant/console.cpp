@@ -37,7 +37,6 @@
 #include <QPlainTextEdit>
 #include <QContextMenuEvent>
 
-
 #ifndef WIN32
 #include <unistd.h> // write()
 #endif
@@ -124,7 +123,7 @@ class GtkTextBufferOutputStream : public TextOutputStream
 {
 	QPlainTextEdit* textBuffer;
 public:
-	GtkTextBufferOutputStream(QPlainTextEdit* textBuffer ) : textBuffer( textBuffer ) {
+	GtkTextBufferOutputStream( QPlainTextEdit* textBuffer ) : textBuffer( textBuffer ) {
 	}
 	std::size_t
 #ifdef __GNUC__
@@ -153,6 +152,23 @@ std::size_t Sys_Print( int level, const char* buf, std::size_t length ){
 	}
 
 	if ( level != SYS_NOCON ) {
+#ifndef WIN32
+		{  // on linux/macos log also to terminal
+			switch ( level )
+			{
+			case SYS_WRN:
+			case SYS_ERR:
+				write( 2, buf, length );
+				break;
+			case SYS_STD:
+			case SYS_VRB:
+			default:
+				write( 1, buf, length );
+				break;
+			}
+		}
+#endif
+
 		if ( g_console != 0 ) {
 			g_console->moveCursor( QTextCursor::End ); // must go before setCurrentCharFormat() & insertPlainText()
 

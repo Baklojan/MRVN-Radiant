@@ -184,7 +184,7 @@ void Brush_ConstructCone( Brush& brush, const AABB& bounds, std::size_t sides, s
 
 	const float radius = max_extent_2d( bounds.extents, axis );
 	const Vector3& mid = bounds.origin;
-	const size_t x = (axis + 1) % 3, y = (axis + 2) % 3, z = axis;
+	const size_t x = ( axis + 1 ) % 3, y = ( axis + 2 ) % 3, z = axis;
 	Vector3 planepts[3];
 
 	planepts[0][x] = mins[x]; planepts[0][y] = mins[y]; planepts[0][z] = mins[z];
@@ -242,7 +242,7 @@ void Brush_ConstructSphere( Brush& brush, const AABB& bounds, std::size_t sides,
 		for ( std::size_t j = 0; j < sides - 1; j++ )
 		{
 			double t = i * dt;
-			double p = float(j * dp - c_pi / 2);
+			double p = float( j * dp - c_pi / 2 );
 
 			planepts[0] = vector3_added( mid, vector3_scaled( vector3_for_spherical( t, p ), radius ) );
 			planepts[1] = vector3_added( mid, vector3_scaled( vector3_for_spherical( t, p + dp ), radius ) );
@@ -463,7 +463,16 @@ void Brush_ConstructPrefab( Brush& brush, EBrushPrefab type, const AABB& bounds,
 }
 
 
+CopiedString g_regionBoxShader;
+
 void ConstructRegionBrushes( scene::Node* brushes[6], const Vector3& region_mins, const Vector3& region_maxs ){
+	const char *shader = g_regionBoxShader.empty()
+	                     ? texdef_name_default()
+	                     : texdef_name_valid( g_regionBoxShader.c_str() )
+	                     ? g_regionBoxShader.c_str()
+	                     : ( globalWarningStream() << "g_regionBoxShader " << makeQuoted( g_regionBoxShader ) << " !texdef_name_valid()\n"
+	                     , texdef_name_default() );
+
 	{
 		// set mins
 		const Vector3 mins( region_mins - Vector3( 32 ) );
@@ -473,7 +482,7 @@ void ConstructRegionBrushes( scene::Node* brushes[6], const Vector3& region_mins
 		{
 			Vector3 maxs( region_maxs + Vector3( 32 ) );
 			maxs[i] = region_mins[i];
-			Brush_ConstructCuboid( *Node_getBrush( *brushes[i] ), aabb_for_minmax( mins, maxs ), texdef_name_default(), TextureProjection() );
+			Brush_ConstructCuboid( *Node_getBrush( *brushes[i] ), aabb_for_minmax( mins, maxs ), shader, TextureProjection() );
 		}
 	}
 
@@ -486,7 +495,7 @@ void ConstructRegionBrushes( scene::Node* brushes[6], const Vector3& region_mins
 		{
 			Vector3 mins( region_mins - Vector3( 32 ) );
 			mins[i] = region_maxs[i];
-			Brush_ConstructCuboid( *Node_getBrush( *brushes[i + 3] ), aabb_for_minmax( mins, maxs ), texdef_name_default(), TextureProjection() );
+			Brush_ConstructCuboid( *Node_getBrush( *brushes[i + 3] ), aabb_for_minmax( mins, maxs ), shader, TextureProjection() );
 		}
 	}
 }
@@ -1033,6 +1042,12 @@ public:
 	filter_brush_any_face( FaceFilter* filter ) : m_filter( filter ){
 	}
 	bool filter( const Brush& brush ) const {
+#if 1
+		for( const auto& face : brush )
+			if( m_filter->filter( *face ) )
+				return true;
+		return false;
+#else
 		bool filtered = false;
 		Brush_forEachFace( brush, [&]( Face& face ){
 			if ( m_filter->filter( face ) ) {
@@ -1040,6 +1055,7 @@ public:
 			}
 		});
 		return filtered;
+#endif
 	}
 };
 
@@ -1050,13 +1066,20 @@ public:
 	filter_brush_all_faces( FaceFilter* filter ) : m_filter( filter ){
 	}
 	bool filter( const Brush& brush ) const {
-		bool filtered = true;
+#if 1
+		for( const auto& face : brush )
+			if( !m_filter->filter( *face ) )
+				return false;
+		return !brush.empty(); // don't filter empty brushes
+#else
+		bool filtered = !brush.empty(); // don't filter empty brushes
 		Brush_forEachFace( brush, [&]( Face& face ){
 			if ( !m_filter->filter( face ) ) {
 				filtered = false;
 			}
 		});
 		return filtered;
+#endif
 	}
 };
 
@@ -1087,6 +1110,9 @@ filter_brush_all_faces g_filter_brush_caulk( &g_filter_face_caulk );
 
 filter_face_shader_prefix g_filter_face_caulk_ja( "textures/system/caulk" );
 filter_brush_all_faces g_filter_brush_caulk_ja( &g_filter_face_caulk_ja );
+
+filter_face_shader g_filter_face_caulk_q1( "textures/skip" );
+filter_brush_all_faces g_filter_brush_caulk_q1( &g_filter_face_caulk_q1 );
 
 filter_face_flags g_filter_face_liquids( QER_LIQUID );
 filter_brush_any_face g_filter_brush_liquids( &g_filter_face_liquids );
@@ -1160,8 +1186,11 @@ void BrushFilters_construct(){
 		add_brush_filter( g_filter_brush_detail, EXCLUDE_DETAILS );
 		add_brush_filter( g_filter_brush_detail, EXCLUDE_STRUCTURAL, true );
 	}
-	if( string_equal( GlobalRadiant().getRequiredGameDescriptionKeyValue( "entities" ), "quake" ) )
+	if( string_equal( GlobalRadiant().getRequiredGameDescriptionKeyValue( "entities" ), "quake" ) ){
 		add_brush_filter( g_filter_brush_liquids_q1, EXCLUDE_LIQUIDS );
+		add_brush_filter( g_filter_brush_caulk_q1, EXCLUDE_CAULK );
+		add_face_filter( g_filter_face_caulk_q1, EXCLUDE_CAULK );
+	}
 	add_brush_filter( g_filter_brush_lightgrid, EXCLUDE_LIGHTGRID );
 	add_brush_filter( g_filter_brush_decals, EXCLUDE_DECALS );
 	add_brush_filter( g_filter_brush_sky, EXCLUDE_SKY );

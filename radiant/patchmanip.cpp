@@ -912,8 +912,7 @@ void DoPatchDeformDlg(){
 
 	auto spin = new SpinBox( -9999, 9999, 64 );
 
-	const char* pAxis[] = { "X", "Y", "Z" };
-	RadioHBox radioBox = RadioHBox_new( StringArrayRange(pAxis) );
+	RadioHBox radioBox = RadioHBox_new( (const char*[]){ "X", "Y", "Z" } );
 	radioBox.m_radio->button( 2 )->setChecked( true );
 
 	{
@@ -987,8 +986,7 @@ void DoPatchThickenDlg(){
 	const int grid = std::max( GetGridSize(), 1.f );
 	auto spin = new SpinBox( -9999, 9999, grid, 2, grid );
 
-	const char* pAxis[] = { "X", "Y", "Z", "Normal" };
-	RadioHBox radioBox = RadioHBox_new( StringArrayRange(pAxis) );
+	RadioHBox radioBox = RadioHBox_new( (const char*[]){ "X", "Y", "Z", "Normal" } );
 	radioBox.m_radio->button( 3 )->setChecked( true );
 
 	auto check = new QCheckBox( "Side walls" );
@@ -1123,7 +1121,9 @@ public:
 		       || !std::isfinite( m_tex2local[0] ) //nan
 		       || fabs( vector3_dot( m_plane.normal(), m_tex2local.z().vec3() ) ) < 1e-6 //projected along face
 		       || vector3_length_squared( m_tex2local.x().vec3() ) < .01 //srsly scaled down, limit at max 10 textures per world unit
-		       || vector3_length_squared( m_tex2local.y().vec3() ) < .01 );
+		       || vector3_length_squared( m_tex2local.y().vec3() ) < .01
+		       || vector3_length_squared( m_tex2local.x().vec3() ) > 1e9 //very upscaled or product of nearly nan
+		       || vector3_length_squared( m_tex2local.y().vec3() ) > 1e9 );
 	}
 };
 

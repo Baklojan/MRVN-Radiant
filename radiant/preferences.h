@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "libxml/parser.h"
+#include <libxml/parser.h>
 #include "stream/textstream.h"
 #include "debugging/debugging.h"
 #include "dialog.h"
@@ -94,10 +94,10 @@ public:
 		return m_dialog.addSpinner( m_grid, name, lower, upper, importCallback, exportCallback );
 	}
 	QWidget* appendSpinner( const char* name, double lower, double upper, const FloatImportCallback& importCallback, const FloatExportCallback& exportCallback, int decimals = 2 ){
-		return m_dialog.addSpinner( m_grid, name, lower, upper, importCallback, exportCallback, decimals);
+		return m_dialog.addSpinner( m_grid, name, lower, upper, importCallback, exportCallback, decimals );
 	}
 	QWidget* appendSpinner( const char* name, float& data, double lower, double upper, int decimals = 2 ){
-		return m_dialog.addSpinner( m_grid, name, data, lower, upper, decimals);
+		return m_dialog.addSpinner( m_grid, name, data, lower, upper, decimals );
 	}
 };
 
@@ -285,7 +285,7 @@ public:
 	   for prefs, we hook the frame in the main notebook
 	   build the frame on-demand (only once)
 	 */
-/// \brief \p global controls if to use LatchedValue assignment callback (global settings dialog) or import (preferences dialog).
+	/// \brief \p global controls if to use LatchedValue assignment callback (global settings dialog) or import (preferences dialog).
 	void CreateGlobalFrame( PreferencesPage& page, bool global );
 
 	/*!

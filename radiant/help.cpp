@@ -26,7 +26,7 @@
 #include <vector>
 #include <list>
 
-#include "libxml/parser.h"
+#include <libxml/parser.h>
 #include "generic/callback.h"
 #include "gtkutil/menu.h"
 #include "stream/stringstream.h"
@@ -113,7 +113,6 @@ void process_xlink( const char* filename, const char *menu_name, const char *bas
 void create_game_help_menu( QMenu *menu ){
 	auto filename = StringStream<256>( AppPath_get(), "global.xlink" );
 	process_xlink( filename, "General", AppPath_get(), menu );
-
 #if 1
 	filename( g_pGameDescription->mGameToolsPath, "game.xlink" );
 	process_xlink( filename, g_pGameDescription->getRequiredKeyValue( "name" ), g_pGameDescription->mGameToolsPath.c_str(), menu );

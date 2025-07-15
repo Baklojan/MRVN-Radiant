@@ -42,7 +42,7 @@ void SetCommonShader( const char* name ){
 
 
 const char* GetCaulkShader(){
-	static const char* caulk_shader = string_clone( GetCommonShader( "toolsnodraw" ).c_str() );
+	static const char* caulk_shader = string_clone( GetCommonShader( "caulk" ).c_str() );
 	return caulk_shader;
 }
 

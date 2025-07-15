@@ -605,16 +605,24 @@ protected:
 			 || keyEvent->key() == Qt::Key_Enter
 			 || keyEvent->key() == Qt::Key_Escape
 			 || keyEvent->key() == Qt::Key_Tab
-			 || keyEvent->key() == Qt::Key_Up
-			 || keyEvent->key() == Qt::Key_Down
-			 || keyEvent->key() == Qt::Key_PageUp
-			 || keyEvent->key() == Qt::Key_PageDown ){
+			 || ( ( keyEvent->modifiers() == Qt::KeyboardModifier::NoModifier
+			     || keyEvent->modifiers() == Qt::KeyboardModifier::KeypadModifier ) // do not filter editor's shortcuts with modifiers
+			  && ( keyEvent->key() == Qt::Key_Up
+			    || keyEvent->key() == Qt::Key_Down
+			    || keyEvent->key() == Qt::Key_PageUp
+			    || keyEvent->key() == Qt::Key_PageDown ) )
+			){
 				event->accept();
 				return true;
 			}
 		}
 		// clear focus widget while showing to keep global shortcuts working
+#ifdef WIN32
 		else if( event->type() == QEvent::Show ) {
+#else
+		else if( event->type() == QEvent::WindowActivate ) { // fixme hack hack: events order varies in OSes, QEvent::Show doesn't work in Linux
+		// QEvent::WindowActivate seems preferable for usability, but allows QLineEdit content selection w/o focusing it in WIN32
+#endif
 			QTimer::singleShot( 0, [obj](){
 				if( static_cast<QWidget*>( obj )->focusWidget() != nullptr )
 					static_cast<QWidget*>( obj )->focusWidget()->clearFocus();
@@ -623,7 +631,7 @@ protected:
 		return QObject::eventFilter( obj, event ); // standard event processing
 	}
 }
-g_pressedKeysFilter1;
+g_pressedKeysFilter;
 
 // =============================================================================
 // SurfaceInspector class
@@ -633,7 +641,7 @@ void SurfaceInspector::BuildDialog(){
 
 	g_guiSettings.addWindow( GetWidget(), "SurfaceInspector/geometry", 99, 99 );
 
-	GetWidget()->installEventFilter( &g_pressedKeysFilter1 );
+	GetWidget()->installEventFilter( &g_pressedKeysFilter );
 
 //.	window_connect_focus_in_clear_focus_widget( window );
 
@@ -1226,7 +1234,7 @@ public:
 		return ctrlAt( m_row, m_col );
 	}
 	operator bool() const {
-		return m_row >=0 && m_row < m_height && m_col >=0 && m_col < m_width;
+		return m_row >= 0 && m_row < m_height && m_col >= 0 && m_col < m_width;
 	}
 	void operator++(){
 		operator+=( 1 );
@@ -1492,6 +1500,7 @@ void Patch_setTexture( Patch& patch, const char* shader, const FaceTexture& clip
 			p.m_texcoord = matrix4_transformed_point( mat, Vector3( p.m_texcoord ) ).vec2();
 		}
 		patch.controlPointsChanged();
+		Patch_textureChanged();
 
 		// Patch_getTexture
 		g_faceTextureClipboard.m_width = patch.getShader()->getTexture().width;
@@ -1508,6 +1517,8 @@ void Light_getTexture( Entity& entity, CopiedString& shader, FaceTexture& clipbo
 	string_parse_vector3( entity.getKeyValue( "_color" ), clipboard.m_colour );
 	if( !string_parse_float( entity.getKeyValue( "_light" ), clipboard.m_light ) )
 		string_parse_float( entity.getKeyValue( "light" ), clipboard.m_light );
+
+	shader = TextureBrowser_GetSelectedShader(); // preserve shader
 }
 typedef Function<void(Entity&, CopiedString&, FaceTexture&), Light_getTexture> LightGetTexture;
 

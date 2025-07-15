@@ -39,7 +39,8 @@ public:
 
 SelectionSystemWindowObserver* NewWindowObserver();
 
-template<typename Element> class BasicVector3;
-typedef BasicVector3<float> Vector3;
+void SelectionSystem_connectTransformsCallbacks( const std::array<Callback<void(const char*)>, 4>& callbacks );
 
-void Scene_Intersect( const View& view, const float device_point[2], const float device_epsilon[2], Vector3& intersection );
+#include "math/vectorfwd.h"
+
+void Scene_Intersect( const View& view, const Vector2& device_point, const Vector2& device_epsilon, Vector3& intersection );

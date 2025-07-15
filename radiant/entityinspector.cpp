@@ -51,6 +51,7 @@
 #include <QKeyEvent>
 #include <QApplication>
 #include <QButtonGroup>
+#include <QToolTip>
 #include "gtkutil/combobox.h"
 
 #include "os/path.h"
@@ -108,6 +109,44 @@ void Scene_EntitySetKeyValue_Selected_Undoable( const char* key, const char* val
 	Scene_EntitySetKeyValue_Selected( key, value );
 }
 
+
+class KeyValueValidator : public QValidator
+{
+	QWidget *m_parent;
+public:
+	KeyValueValidator( QWidget *parent ) : QValidator( parent ), m_parent( parent ){
+	}
+	QValidator::State validate( QString& input, int &pos ) const override {
+		auto it = std::remove_if( input.begin(), input.end(), []( QChar c ){
+			return strchr( "\n\r\"", c.toLatin1() ) != nullptr;
+		} );
+		if( it != input.end() ){
+			input.chop( std::distance( it, input.end() ) );
+			QToolTip::showText( m_parent->mapToGlobal( m_parent->rect().bottomLeft() ), "No newlines & quotes are allowed in entity key values.", m_parent );
+		}
+		return QValidator::State::Acceptable;
+	}
+};
+
+class KeyNameValidator : public QValidator
+{
+	QWidget *m_parent;
+public:
+	KeyNameValidator( QWidget *parent ) : QValidator( parent ), m_parent( parent ){
+	}
+	QValidator::State validate( QString& input, int &pos ) const override {
+		auto it = std::remove_if( input.begin(), input.end(), []( QChar c ){
+			return strchr( " \n\r\t\v\"", c.toLatin1() ) != nullptr;
+		} );
+		if( it != input.end() ){
+			input.chop( std::distance( it, input.end() ) );
+			QToolTip::showText( m_parent->mapToGlobal( m_parent->rect().bottomLeft() ), "No spaces, newlines, tabs, quotes are allowed in entity key names.", m_parent );
+		}
+		return QValidator::State::Acceptable;
+	}
+};
+
+
 class EntityAttribute
 {
 public:
@@ -155,6 +194,7 @@ public:
 	StringAttribute( const char* key ) :
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
+		m_entry->setValidator( new KeyValueValidator( m_entry ) );
 	}
 	virtual ~StringAttribute() = default;
 	QWidget* getWidget() const override {
@@ -207,6 +247,7 @@ public:
 	ColorAttribute( const char* key ) :
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
+		m_entry->setValidator( new KeyValueValidator( m_entry ) );
 		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_ArrowRight ), QLineEdit::ActionPosition::TrailingPosition );
 		QObject::connect( button, &QAction::triggered, [this](){ browse(); } );
 	}
@@ -245,7 +286,8 @@ public:
 	ModelAttribute( const char* key ) :
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
-		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_FileDialogStart ), QLineEdit::ActionPosition::TrailingPosition );
+		m_entry->setValidator( new KeyValueValidator( m_entry ) );
+		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_DialogOpenButton ), QLineEdit::ActionPosition::TrailingPosition );
 		QObject::connect( button, &QAction::triggered, [this](){ browse(); } );
 	}
 	void release() override {
@@ -308,6 +350,7 @@ public:
 	SoundAttribute( const char* key ) :
 		m_key( key ),
 		m_entry( new NonModalEntry( ApplyCaller( *this ), UpdateCaller( *this ) ) ){
+		m_entry->setValidator( new KeyValueValidator( m_entry ) );
 		auto button = m_entry->addAction( QApplication::style()->standardIcon( QStyle::SP_MediaVolume ), QLineEdit::ActionPosition::TrailingPosition );
 		QObject::connect( button, &QAction::triggered, [this](){ browse(); } );
 	}
@@ -805,6 +848,12 @@ void SetComment( EntityClass* eclass ){
 	}
 
 	g_current_comment = eclass;
+
+	if( eclass == nullptr ){
+		g_entityClassComment->clear();
+		return;
+	}
+
 	g_entityClassComment->setPlainText( eclass->comments() );
 
 	{	// Catch patterns like "\nstuff :" used to describe keys and spawnflags, and make them bold for readability.
@@ -863,10 +912,13 @@ void SpawnFlags_setEntityClass( EntityClass* eclass ){
 }
 
 void EntityClassList_selectEntityClass( EntityClass* eclass ){
-	auto list = g_entityClassList->findItems( eclass->name(), Qt::MatchFlag::MatchFixedString );
-	if( !list.isEmpty() ){
-		g_entityClassList->setCurrentItem( list.first() );
-	}
+	const auto list = g_entityClassList->findItems( eclass->name(), Qt::MatchFlag::MatchFixedString );
+	g_entityClassList->setCurrentItem( !list.isEmpty()
+	                                   ? list.first()
+	                                   : nullptr );
+	// g_entityClassComment is only updated via g_entityClassList selection change
+	// using special nullprt case to also update it on selection of unknown entity added during runtime
+	// hence this->EntityClassList_selection_changed()->SetComment() must handle nullptr
 }
 
 void EntityInspector_appendAttribute( const EntityClassAttributePair& attributePair, EntityAttribute& attribute ){
@@ -1040,15 +1092,6 @@ void EntityInspector_applyKeyValue(){
 //		return;
 //	}
 
-	// RR2DO2: we don't want spaces and special symbols in entity keys
-	if ( std::any_of( key.cbegin(), key.cend(), []( const char c ) { return strchr( " \n\r\t\v\"", c ) != nullptr; } ) ) {
-		qt_MessageBox( g_entityKeyEntry->window(), "No spaces, newlines, tabs, quotes are allowed in entity key names." );
-		return;
-	}
-	if ( std::any_of( value.cbegin(), value.cend(), []( const char c ){ return strchr( "\n\r\"", c ) != nullptr; } ) ) {
-		qt_MessageBox( g_entityKeyEntry->window(), "No newlines & quotes are allowed in entity key values." );
-		return;
-	}
 	// avoid empty key name; empty value is okay: deletes key
 	if( key.isEmpty() )
 		return;
@@ -1107,9 +1150,9 @@ void EntityInspector_clearAllKeyValues(){
 // callbacks
 
 static void EntityClassList_selection_changed( QTreeWidgetItem *current, QTreeWidgetItem *previous ){
-	if( current != nullptr ){
-		SetComment( current->data( 0, Qt::ItemDataRole::UserRole ).value<EntityClass*>() );
-	}
+	SetComment( current != nullptr
+	            ? current->data( 0, Qt::ItemDataRole::UserRole ).value<EntityClass*>()
+	            : nullptr );
 }
 
 static void EntityProperties_selection_changed( QTreeWidgetItem *item, int column ){
@@ -1138,7 +1181,7 @@ protected:
 		}
 		// clear focus widget while showing to keep global shortcuts working
 		else if( event->type() == QEvent::Show ) {
-			QTimer::singleShot( 0, [obj]() {
+			QTimer::singleShot( 0, [obj](){
 				if( static_cast<QWidget*>( obj )->focusWidget() != nullptr )
 					static_cast<QWidget*>( obj )->focusWidget()->clearFocus();
 			} );
@@ -1238,12 +1281,14 @@ QWidget* EntityInspector_constructWindow( QWidget* toplevel ){
 				auto line = g_entityKeyEntry = new LineEdit;
 				grid->addWidget( line, 0, 1 );
 				QObject::connect( line, &QLineEdit::returnPressed, [](){ g_entityValueEntry->setFocus(); g_entityValueEntry->selectAll(); } );
+				line->setValidator( new KeyNameValidator( line ) );
 			}
 
 			{
 				auto line = g_entityValueEntry = new LineEdit;
 				grid->addWidget( line, 1, 1 );
 				QObject::connect( line, &QLineEdit::returnPressed, [](){ EntityInspector_applyKeyValue(); } );
+				line->setValidator( new KeyValueValidator( line ) );
 			}
 			/* select by key/value buttons */
 			{

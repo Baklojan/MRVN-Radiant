@@ -37,11 +37,11 @@
 #include "debugging/debugging.h"
 
 #include "ifilesystem.h"
-//#include "imap.h"
 
 #include <map>
 
 #include <QWidget>
+#include <QMessageBox>
 
 #include "stream/textfilestream.h"
 #include "commandlib.h"
@@ -88,7 +88,7 @@ void QE_InitVFS(){
 			paths.emplace_back( newPath );
 	};
 
-	
+
 	for( const auto& path : ExtraResourcePaths_get() )
 		paths_push( path.c_str() );
 
@@ -135,13 +135,14 @@ bool ConfirmModified( const char* title ){
 		return true;
 	}
 
-	EMessageBoxReturn result = qt_MessageBox( MainFrame_getWindow(),
-	                                           "The current map has changed since it was last saved.\nDo you want to save the current map before continuing?",
-	                                           title, EMessageBoxType::Question, eIDYES | eIDNO | eIDCANCEL );
-	if ( result == eIDCANCEL ) {
+	const QMessageBox::StandardButton result =
+		QMessageBox::question( MainFrame_getWindow(), title,
+		                       "The current map has changed since it was last saved.\nDo you want to save the current map before continuing?",
+		                       QMessageBox::StandardButton::Save | QMessageBox::StandardButton::Discard | QMessageBox::StandardButton::Cancel );
+	if ( result == QMessageBox::StandardButton::Cancel ) {
 		return false;
 	}
-	if ( result == eIDYES ) {
+	if ( result == QMessageBox::StandardButton::Save ) {
 		if ( Map_Unnamed( g_map ) ) {
 			return Map_SaveAs();
 		}
@@ -150,7 +151,7 @@ bool ConfirmModified( const char* title ){
 			return Map_Save();
 		}
 	}
-	return true; // eIDNO
+	return true; // QMessageBox::StandardButton::Discard
 }
 
 void bsp_init(){
