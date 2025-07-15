@@ -31,7 +31,7 @@ class TransformNode
 {
 public:
 	STRING_CONSTANT( Name, "TransformNode" );
-/// \brief Returns the transform which maps the node's local-space into the local-space of its parent node.
+	/// \brief Returns the transform which maps the node's local-space into the local-space of its parent node.
 	virtual const Matrix4& localToParent() const  = 0;
 };
 
@@ -39,7 +39,7 @@ public:
 class IdentityTransform : public TransformNode
 {
 public:
-/// \brief Returns the identity matrix.
+	/// \brief Returns the identity matrix.
 	const Matrix4& localToParent() const {
 		return g_matrix4_identity;
 	}
@@ -56,7 +56,7 @@ public:
 	Matrix4& localToParent(){
 		return m_localToParent;
 	}
-/// \brief Returns the stored local->parent transform.
+	/// \brief Returns the stored local->parent transform.
 	const Matrix4& localToParent() const {
 		return m_localToParent;
 	}
@@ -146,7 +146,7 @@ public:
 		m_translation( c_translation_identity ),
 		m_rotation( c_quaternion_identity ),
 		m_scale( c_scale_identity ),
-		m_skew( c_skew_identity ) {
+		m_skew( c_skew_identity ){
 	}
 
 	bool isIdentity() const {
@@ -184,10 +184,11 @@ public:
 	void setScale( const Scale& value ){
 		m_scale = value;
 	}
-	void setSkew( const Skew& value ) {
+	void setSkew( const Skew& value ){
 		m_skew = value;
 	}
 };
+
 
 class TransformModifier : public Transforms, public Transformable
 {
@@ -231,12 +232,14 @@ public:
 		}
 	}
 };
+
 // modification intended for more controllable freezeTransform() implementation via direct isIdentity(), setIdentity() accesses
 class BrushTransformModifier : public TransformModifier
 {
 	using TransformModifier::TransformModifier;
 public:
 	bool m_transformFrozen = true;
+
 	void freezeTransform() override {
 		m_apply();
 		m_transformFrozen = true;

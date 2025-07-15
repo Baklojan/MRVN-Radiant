@@ -142,21 +142,6 @@ protected:
     void InternReadFile_HL2( );
 
     // -------------------------------------------------------------------
-    /** Import a Titanfall1 MDL file
-    */
-    void InternReadFile_Titanfall1(const std::string &pFile);
-
-    // -------------------------------------------------------------------
-    /** Import a Titanfall2 MDL file
-    */
-    void InternReadFile_Titanfall2(const std::string &pFile);
-
-    // -------------------------------------------------------------------
-    /** Import a Apex Legends RMDL file
-    */
-    void InternReadFile_ApexLegends(const std::string &pFile);
-
-    // -------------------------------------------------------------------
     /** Check whether a given position is inside the valid range
      *  Throw a DeadlyImportError if it is not
      * \param szPos Cursor position

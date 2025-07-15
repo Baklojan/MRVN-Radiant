@@ -268,12 +268,12 @@ ELSEIF(MSVC)
   ENDIF()
   # disable "elements of array '' will be default initialized" warning on MSVC2013
   IF(MSVC12)
-    ADD_COMPILE_OPTIONS(/wd4351)
+    ADD_COMPILE_OPTIONS(/wd4351)	
   ENDIF()
   ADD_COMPILE_OPTIONS(/wd4244) #supress warning for double to float conversion if Double precission is activated
   SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /D_DEBUG /Zi /Od")
   SET(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
-  SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /MANIFEST:NO /DEBUG:NONE")
+  SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG:FULL /PDBALTPATH:%_PDB% /OPT:REF /OPT:ICF")
 ELSEIF (CMAKE_CXX_COMPILER_ID MATCHES "Clang" )
   IF(NOT ASSIMP_HUNTER_ENABLED)
     SET(CMAKE_CXX_STANDARD 11)
@@ -304,10 +304,6 @@ IF ( IOS AND NOT ASSIMP_HUNTER_ENABLED)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fembed-bitcode -O3")
     # Experimental for pdb generation
   ENDIF()
-ENDIF()
-
-IF(CMAKE_C_COMPILER_ID MATCHES "GNU")
-    SET(CMAKE_CXX_FLAGS "-Wno-dangling-reference ${CMAKE_CXX_FLAGS}" )
 ENDIF()
 
 IF (ASSIMP_COVERALLS)
@@ -343,9 +339,9 @@ INCLUDE (FindPkgMacros)
 INCLUDE (PrecompiledHeader)
 
 # Set Assimp project output directory variables.
-SET(ASSIMP_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/install" CACHE STRING "Path for runtime output files")
-SET(ASSIMP_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/install" CACHE STRING "Path for library output files")
-SET(ASSIMP_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/install" CACHE STRING "Path for archive output files")
+SET(ASSIMP_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin" CACHE STRING "Path for runtime output files")
+SET(ASSIMP_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin" CACHE STRING "Path for library output files")
+SET(ASSIMP_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib" CACHE STRING "Path for archive output files")
 
 # Macro used to set the output directories of a target to the
 # respective Assimp output directories.
@@ -462,10 +458,10 @@ IF(ASSIMP_HUNTER_ENABLED)
   set(ASSIMP_BUILD_MINIZIP TRUE)
 ELSE()
   # If the zlib is already found outside, add an export in case assimpTargets can't find it.
-  # IF( ZLIB_FOUND )
-  #   INSTALL( TARGETS zlib zlibstatic
-  #       EXPORT "${TARGETS_EXPORT_NAME}")
-  # ENDIF()
+  IF( ZLIB_FOUND )
+    INSTALL( TARGETS zlib zlibstatic
+        EXPORT "${TARGETS_EXPORT_NAME}")
+  ENDIF()
 
   IF ( NOT ASSIMP_BUILD_ZLIB )
     FIND_PACKAGE(ZLIB)

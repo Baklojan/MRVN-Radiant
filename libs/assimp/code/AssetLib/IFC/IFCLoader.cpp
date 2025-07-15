@@ -54,7 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef ASSIMP_USE_HUNTER
 #include <minizip/unzip.h>
 #else
-#include <contrib/unzip/unzip.h>
+#include <unzip.h>
 #endif
 #endif
 

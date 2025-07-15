@@ -19,58 +19,11 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "memory/allocator.h"
+#pragma once
 
-#include <vector>
-
-template<typename Value>
-struct Vector
-{
-	typedef std::vector<Value, DefaultAllocator<Value> > Type;
-};
-
-namespace
-{
-class Bleh
-{
-	int* m_blah;
-public:
-	Bleh( int* blah ) : m_blah( blah ){
-	}
-	~Bleh(){
-		*m_blah = 15;
-	}
-};
-
-void TestAllocator(){
-	Vector<Bleh>::Type test;
-
-	int i = 0;
-	test.push_back( Bleh( &i ) );
-}
-
-void TestNewDelete(){
-	{
-		NamedAllocator<int> allocator( "test" );
-		int* p = NamedNew<int>::type( allocator ).scalar();
-		//new int();
-		NamedDelete<int>::type( allocator ).scalar( p );
-	}
-
-	{
-		int* p = New<int>().scalar( 3 );
-		Delete<int>().scalar( p );
-	}
-
-	{
-		int* p = New<int>().scalar( int( 15.9 ) );
-		Delete<int>().scalar( p );
-	}
-
-	{
-		int* p = New<int>().vector( 15 );
-		// new int[15]
-		Delete<int>().vector( p, 15 );
-	}
-}
-}
+template<typename Element> class BasicVector2;
+typedef BasicVector2<float> Vector2;
+template<typename Element> class BasicVector3;
+typedef BasicVector3<float> Vector3;
+template<typename Element> class BasicVector4;
+typedef BasicVector4<float> Vector4;

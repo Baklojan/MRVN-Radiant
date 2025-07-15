@@ -211,6 +211,7 @@ class Callback<R(Ts...)> : public detail::CallbackBase<R(*)(void *, Ts...)>
 	using Base = detail::CallbackBase<R (*)(void *, Ts...)>;
 
 	static R nullThunk( void *, Ts... ){
+		return R{};
 	}
 
 public:
@@ -264,7 +265,7 @@ namespace detail {
 
 template<typename Caller>
 inline Callback<detail::ArgShift<get_func<Caller>>> makeCallback( const Caller& caller, get_argument<Caller, 0> callee ){
-	return BindFirstOpaque<Caller>(callee);
+	return BindFirstOpaque<Caller>( callee );
 }
 
 template<class Caller, class F>
@@ -283,7 +284,7 @@ public:
 
 template<typename Caller>
 inline Callback<get_func<Caller>> makeStatelessCallback( const Caller& caller ){
-	return makeCallback(CallerShiftFirst<Caller, detail::ArgUnshift<get_func<Caller>, void *>>(), nullptr);
+	return makeCallback( CallerShiftFirst<Caller, detail::ArgUnshift<get_func<Caller>, void *>>(), nullptr );
 }
 
 /// \brief Forms a Callback from a non-const Environment reference and a non-const Environment member-function.

@@ -51,9 +51,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "AssetLib/MDL/MDLLoader.h"
 #include "AssetLib/MD2/MD2FileData.h"
 #include "AssetLib/MDL/HalfLife/HL1MDLLoader.h"
-#include "AssetLib/MDL/Respawn/R1MDLLoader.h"
-#include "AssetLib/MDL/Respawn/R2MDLLoader.h"
-#include "AssetLib/MDL/Respawn/R5MDLLoader.h"
 #include "AssetLib/MDL/MDLDefaultColorMap.h"
 
 #include <assimp/StringUtils.h>
@@ -78,7 +75,7 @@ static const aiImporterDesc desc = {
     0,
     7,
     0,
-    "mdl rmdl"
+    "mdl"
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -200,10 +197,10 @@ void MDLImporter::InternReadFile(const std::string &pFile,
         // find the end of the buffer ...
         mBuffer[iFileSize] = '\0';
         const uint32_t iMagicWord = *((uint32_t *)mBuffer);
-        const uint32_t iFileVersion = *(mBuffer + 4);
 
         // Determine the file subtype and call the appropriate member function
         bool is_half_life = false;
+
         // Original Quake1 format
         if (AI_MDL_MAGIC_NUMBER_BE == iMagicWord || AI_MDL_MAGIC_NUMBER_LE == iMagicWord) {
             ASSIMP_LOG_DEBUG("MDL subtype: Quake 1, magic word is IDPO");
@@ -239,24 +236,6 @@ void MDLImporter::InternReadFile(const std::string &pFile,
             ASSIMP_LOG_DEBUG("MDL subtype: 3D GameStudio A7, magic word is MDL7");
             iGSFileVersion = 7;
             InternReadFile_3DGS_MDL7();
-        }
-        // Respawn mdl
-        else if (AI_MDL_MAGIC_NUMBER_BE_TF == iMagicWord || AI_MDL_MAGIC_NUMBER_LE_TF == iMagicWord ) {
-            if (iFileVersion == AI_MDL_VERSION_R1) {
-                ASSIMP_LOG_DEBUG("MDL subtype: Titanfall1 MDL");
-                InternReadFile_Titanfall1(pFile);
-                is_half_life = true;
-            } else if (iFileVersion == AI_MDL_VERSION_R2) {
-                ASSIMP_LOG_DEBUG("MDL subtype: Titanfall2 MDL");
-                InternReadFile_Titanfall2(pFile);
-                is_half_life = true;
-            } else if(iFileVersion == AI_MDL_VERSION_R5) {
-                ASSIMP_LOG_DEBUG("MDL subtype: Titanfall3 MDL");
-                InternReadFile_ApexLegends(pFile);
-                is_half_life = true;
-            } else {
-                throw DeadlyImportError("Unknown MDL version ", pFile, ". Version: ", iFileVersion );
-            }
         }
         // IDST/IDSQ Format (CS:S/HL^2, etc ...)
         else if (AI_MDL_MAGIC_NUMBER_BE_HL2a == iMagicWord || AI_MDL_MAGIC_NUMBER_LE_HL2a == iMagicWord ||
@@ -1997,36 +1976,6 @@ void MDLImporter::InternReadFile_HL1(const std::string &pFile, const uint32_t iM
 void MDLImporter::InternReadFile_HL2() {
     //const MDL::Header_HL2* pcHeader = (const MDL::Header_HL2*)this->mBuffer;
     throw DeadlyImportError("HL2 MDLs are not implemented");
-}
-
-// ------------------------------------------------------------------------------------------------
-// Read a Titanfall 2 MDL
-void MDLImporter::InternReadFile_Titanfall1(const std::string &pFile) {
-    RespawnR1::R1MDLLoader loader(
-            pScene,
-            mIOHandler,
-            mBuffer,
-            pFile);
-}
-
-// ------------------------------------------------------------------------------------------------
-// Read a Titanfall 1 MDL
-void MDLImporter::InternReadFile_Titanfall2(const std::string &pFile) {
-    RespawnR2::R2MDLLoader loader(
-            pScene,
-            mIOHandler,
-            mBuffer,
-            pFile);
-}
-
-// ------------------------------------------------------------------------------------------------
-// Read a Apex Legends RMDL
-void MDLImporter::InternReadFile_ApexLegends(const std::string &pFile) {
-    RespawnR5::R5MDLLoader loader(
-            pScene,
-            mIOHandler,
-            mBuffer,
-            pFile);
 }
 
 #endif // !! ASSIMP_BUILD_NO_MDL_IMPORTER

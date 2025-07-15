@@ -148,10 +148,10 @@ public:
 	}
 };
 
-static_assert( !std::is_constructible_v<StringRange, const StringOutputStream &>
-	&& !std::is_constructible_v<StringRange, StringOutputStream &>,
-	"StringRange must be not constructible from StringOutputStream as this leads to implicit convertion during overload resolution "
-	"= ambiguity (->char* or ->StringRange) and different code functionality." );
+static_assert( !std::is_constructible_v<StringRange, const StringOutputStream&>
+            && !std::is_constructible_v<StringRange, StringOutputStream&>,
+"StringRange must be not constructible from StringOutputStream as this leads to implicit convertion during overload resolution "
+"= ambiguity (->char* or ->StringRange) and different code functionality." );
 
 template<typename T>
 inline StringOutputStream& operator<<( StringOutputStream& ostream, const T& t ){

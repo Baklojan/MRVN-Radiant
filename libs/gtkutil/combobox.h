@@ -27,7 +27,7 @@
 
 /// @brief Subclassed QComboBox not comsuming Enter key (why does it do it? works as expected for editable ComboBox)
 /// purpose is to have working confirmation by Enter in dialogs
-/// +fixes crude problem: here is triggering arrows, page, home, end global shortcuts when pressed in popup; even if modal dialog 😱
+/// +fixes crude problem: triggering arrows, page, home, end global shortcuts when pressed in popup; even if modal dialog 😱
 class ComboBox : public QComboBox
 {
 public:

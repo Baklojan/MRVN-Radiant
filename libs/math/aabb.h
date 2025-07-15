@@ -184,8 +184,7 @@ inline unsigned int aabb_oriented_classify_plane( const AABB& aabb, const Matrix
 	return 0; // totally outside
 }
 
-
-inline std::array<Vector3, 8> aabb_corners( const AABB &aabb ) {
+inline std::array<Vector3, 8> aabb_corners( const AABB& aabb ){
 	const Vector3 min( vector3_subtracted( aabb.origin, aabb.extents ) );
 	const Vector3 max( vector3_added( aabb.origin, aabb.extents ) );
 	return {
@@ -200,10 +199,11 @@ inline std::array<Vector3, 8> aabb_corners( const AABB &aabb ) {
 	};
 }
 
-inline std::array<Vector3, 8> aabb_corners_oriented( const AABB & aabb, const Matrix4 & rotation ) {
+inline std::array<Vector3, 8> aabb_corners_oriented( const AABB& aabb, const Matrix4& rotation ){
 	const Vector3 x = rotation.x().vec3() * aabb.extents.x();
 	const Vector3 y = rotation.y().vec3() * aabb.extents.y();
 	const Vector3 z = rotation.z().vec3() * aabb.extents.z();
+
 	return {
 		aabb.origin - x + y + z,
 		aabb.origin + x + y + z,
@@ -216,7 +216,7 @@ inline std::array<Vector3, 8> aabb_corners_oriented( const AABB & aabb, const Ma
 	};
 }
 
-inline void aabb_planes( const AABB &aabb, Plane3 planes[6] ) {
+inline void aabb_planes( const AABB& aabb, Plane3 planes[6] ){
 	planes[0] = Plane3( g_vector3_axes[0], aabb.origin[0] + aabb.extents[0] );
 	planes[1] = Plane3( vector3_negated( g_vector3_axes[0] ), -( aabb.origin[0] - aabb.extents[0] ) );
 	planes[2] = Plane3( g_vector3_axes[1], aabb.origin[1] + aabb.extents[1] );
@@ -225,16 +225,17 @@ inline void aabb_planes( const AABB &aabb, Plane3 planes[6] ) {
 	planes[5] = Plane3( vector3_negated( g_vector3_axes[2] ), -( aabb.origin[2] - aabb.extents[2] ) );
 }
 
-inline std::array<Plane3, 6> aabb_planes_oriented( const AABB &aabb, const Matrix4 &rotation ) {
+inline std::array<Plane3, 6> aabb_planes_oriented( const AABB& aabb, const Matrix4& rotation ){
 	const double x = vector3_dot( rotation.x().vec3(), aabb.origin );
 	const double y = vector3_dot( rotation.y().vec3(), aabb.origin );
 	const double z = vector3_dot( rotation.z().vec3(), aabb.origin );
+
 	return {
-		Plane3( rotation.x().vec3(),    x + aabb.extents[0] ),
+		Plane3(  rotation.x().vec3(),    x + aabb.extents[0] ),
 		Plane3( -rotation.x().vec3(), -( x - aabb.extents[0] ) ),
-		Plane3( rotation.y().vec3(),    y + aabb.extents[1] ),
+		Plane3(  rotation.y().vec3(),    y + aabb.extents[1] ),
 		Plane3( -rotation.y().vec3(), -( y - aabb.extents[1] ) ),
-		Plane3( rotation.z().vec3(),    z + aabb.extents[2] ),
+		Plane3(  rotation.z().vec3(),    z + aabb.extents[2] ),
 		Plane3( -rotation.z().vec3(), -( z - aabb.extents[2] ) )
 	};
 }

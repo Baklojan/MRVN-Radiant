@@ -92,7 +92,7 @@ namespace quickhull {
 			if (faceStack.size()==0) {
 				return;
 			}
-			
+
 			const size_t iCCW = CCW ? 1 : 0;
 			const size_t finalMeshFaceCount = mesh.m_faces.size() - mesh.m_disabledFaces.size();
 			m_indices.reserve(finalMeshFaceCount*3);
@@ -153,7 +153,7 @@ namespace quickhull {
 		VertexDataSource<T>& getVertexBuffer() {
 			return m_vertices;
 		}
-
+		
 		const VertexDataSource<T>& getVertexBuffer() const {
 			return m_vertices;
 		}

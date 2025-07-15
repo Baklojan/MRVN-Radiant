@@ -447,15 +447,6 @@ ADD_ASSIMP_IMPORTER( MDL
   AssetLib/MDL/HalfLife/LogFunctions.h
   AssetLib/MDL/HalfLife/UniqueNameGenerator.cpp
   AssetLib/MDL/HalfLife/UniqueNameGenerator.h
-  AssetLib/MDL/Respawn/R1MDLLoader.cpp
-  AssetLib/MDL/Respawn/R1MDLLoader.h
-  AssetLib/MDL/Respawn/R1MDLFileData.h
-  AssetLib/MDL/Respawn/R2MDLLoader.cpp
-  AssetLib/MDL/Respawn/R2MDLLoader.h
-  AssetLib/MDL/Respawn/R2MDLFileData.h
-  AssetLib/MDL/Respawn/R5MDLLoader.cpp
-  AssetLib/MDL/Respawn/R5MDLLoader.h
-  AssetLib/MDL/Respawn/R5MDLFileData.h
 )
 
 SET( MaterialSystem_SRCS
@@ -1210,7 +1201,6 @@ IF(ASSIMP_HUNTER_ENABLED)
     target_link_libraries(assimp PUBLIC ${draco_LIBRARIES})
   endif()
 ELSE()
-  TARGET_INCLUDE_DIRECTORIES(assimp PRIVATE ${ZLIB_INCLUDE_DIRS})
   TARGET_LINK_LIBRARIES(assimp ${ZLIB_LIBRARIES} ${OPENDDL_PARSER_LIBRARIES})
   if (ASSIMP_BUILD_DRACO)
     target_link_libraries(assimp ${draco_LIBRARIES})
